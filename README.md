@@ -1,11 +1,13 @@
 # BURAPACONCRETE CPAC Booking
 
 ระบบรับจองและบริหารจัดการคิวส่งคอนกรีตผสมเสร็จ (Ready-Mix Concrete Booking) สำหรับ BURAPACONCRETE
-สร้างด้วย React (Vite) + TypeScript + Tailwind CSS ในสไตล์ Warm-Minimalist พร้อมระบบฐานข้อมูลบน
-Cloudflare D1 ผ่าน Cloudflare Worker (โพลข้อมูลทุก 15 นาที) และรองรับ LocalStorage
-Fallback อัตโนมัติเมื่อไม่ได้เชื่อมต่อคลาวด์ (เช่นตอน `npm run dev` บนเครื่อง)
+สร้างด้วย React (Vite) + TypeScript + Tailwind CSS ในสไตล์ Warm-Minimalist
 
-## Getting started
+แอปเก็บข้อมูลบน Cloudflare D1 ผ่าน Cloudflare Worker ตัวเดียว (ให้บริการทั้งไฟล์ static และ API)
+พร้อมโพลข้อมูลใหม่ทุก 15 นาทีเพื่อซิงค์ระหว่างผู้ใช้งาน และมีโหมด LocalStorage Fallback
+ให้ทำงานได้ทันทีเมื่อไม่มี Worker ให้เรียก (เช่นตอนรัน `npm run dev` บนเครื่อง)
+
+## เริ่มต้นใช้งาน
 
 ```bash
 npm install
@@ -14,18 +16,52 @@ npm run dev
 
 บัญชีทดลองใช้งาน:
 
-| Role  | Username | Password  |
-| ----- | -------- | --------- |
-| Admin | `admin`  | `admin123`|
-| Staff | `staff`  | `staff123`|
+| Role  | Username | Password   |
+| ----- | -------- | ---------- |
+| Admin | `admin`  | `admin123` |
+| Staff | `staff`  | `staff123` |
 
-## Cloudflare D1 setup
+## ฟีเจอร์หลัก
 
-ระบบทำงานได้ทันทีในโหมด LocalStorage โดยไม่ต้องตั้งค่าใดๆ (ใช้ตอน `npm run dev` เพราะไม่มี Worker
-ให้เรียก) เมื่อ deploy ขึ้น Cloudflare Workers พร้อมผูก D1 database แล้ว แอปจะตรวจจับ `/api/bookings`
-ได้อัตโนมัติและสลับไปโหมด Cloudflare D1 ทันที (แสดงสถานะที่ Mini Utility Bar)
+- **Authentication** พร้อม 2 สิทธิ์ผู้ใช้งาน (Admin / Staff)
+- **ปฏิทินคิวจัดส่งรายเดือน** แบบ Interactive พร้อม Modal แสดงรายละเอียดงานแต่ละรายการ
+- **ฟอร์มคีย์ใบสั่งจองคอนกรีต** พร้อมคำนวณราคาอัตโนมัติ:
+  - ข้อมูลทั่วไป — ชื่อลูกค้า, เบอร์โทร, วันที่/เวลาจัดส่ง, เวลาถึงหน้างาน (ไม่บังคับ)
+  - รายละเอียดคอนกรีต — กำลังอัด, ปริมาณ, ชนิดรถผสม, ลักษณะการเท, ชนิดงาน
+  - ข้อมูลติดต่อและสถานที่ — ผู้ติดต่อหน้างาน, เบอร์โทร, ลิงก์แผนที่
+  - ราคาและผู้ขาย — ผู้ขาย (Seller) ผูกกับบัญชีเจ้าหน้าที่ในระบบโดยตรง: แอดมินเลือกได้ว่าจะลงชื่อ
+    เจ้าหน้าที่คนไหนเป็นผู้ขาย ส่วนเจ้าหน้าที่จะถูกล็อกเป็นชื่อตนเองอัตโนมัติ, ราคาขาย/คิว, ส่วนลด,
+    ค่าขนส่ง (ตัวเลือกที่ตั้งค่าได้) — รวมเป็นยอดสุทธิให้อัตโนมัติ
+- **หน้าตั้งค่าระบบสำหรับแอดมิน** (`/settings`) แบ่งเป็น 3 แท็บ:
+  - **ผู้ใช้งาน** — เพิ่ม/แก้ไข/ลบบัญชี พร้อมป้องกันลบบัญชีตนเองและแอดมินคนสุดท้าย
+  - **รายละเอียดคอนกรีต** — จัดการตัวเลือกกำลังอัด/ชนิดรถผสม/ลักษณะการเท/ชนิดงานที่ใช้ในฟอร์ม
+    ใบสั่งจอง (เพิ่ม แก้ไข และปิดใช้งาน — ไม่ลบข้อมูล เพื่อไม่ให้ประวัติการจองเดิมเสียหาย)
+  - **ราคา** — จัดการตัวเลือกค่าขนส่งด้วยรูปแบบเดียวกับแท็บรายละเอียดคอนกรีต
+- **Toast แจ้งเตือนแบบเรียลไทม์** เมื่อมีใบสั่งจองใหม่หรือมีการเปลี่ยนสถานะ
+- **รายงานยอดขายเชิงลึก** (รายวัน/รายสัปดาห์/รายเดือน) พร้อมกราฟ Recharts, ตัวกรองตามผู้ขาย และ
+  Print Preview
+- **ประวัติระบบ (Activity Log)** สำหรับแอดมิน — บันทึกทุกกิจกรรมสำคัญ ได้แก่ การเข้า/ออกจากระบบ,
+  การสร้าง/เปลี่ยนสถานะใบสั่งจอง, การจัดการผู้ใช้งาน และการแก้ไขตัวเลือกต่างๆ ในหน้าตั้งค่า
 
-ขั้นตอนตั้งค่า D1 (ทำครั้งเดียว):
+## สถาปัตยกรรมและโหมดการทำงาน
+
+แอปมี 2 โหมดสลับกันอัตโนมัติ ไม่ต้องตั้งค่าใดๆ:
+
+- **LocalStorage mode** — ใช้เมื่อรัน `npm run dev` บนเครื่อง (ไม่มี Worker ให้เรียก) ข้อมูลเก็บใน
+  เบราว์เซอร์ และซิงค์ข้ามแท็บด้วย BroadcastChannel เหมาะสำหรับพัฒนา/ทดสอบ UI
+- **Cloudflare D1 mode** — ใช้เมื่อ deploy ขึ้น Cloudflare Workers พร้อมผูก D1 database แล้ว แอปจะ
+  ตรวจจับ `/api/bookings` ได้อัตโนมัติและสลับไปโหมดนี้ทันที (แสดงสถานะที่ Mini Utility Bar ด้านบน)
+
+Backend เป็น Cloudflare Worker ตัวเดียวที่ `worker/index.ts` ให้บริการทั้งไฟล์ static (ผ่าน binding
+`ASSETS`) และ API:
+
+- `GET /api/bookings`, `POST /api/bookings`
+- `PATCH /api/bookings/:id/status`
+- `GET /api/activity`, `POST /api/activity`
+- `GET /api/users`, `POST /api/users`, `PATCH /api/users/:id`, `DELETE /api/users/:id`
+- `GET /api/options`, `POST /api/options`, `PATCH /api/options/:id`
+
+## ตั้งค่า Cloudflare D1 (ทำครั้งเดียว)
 
 ```bash
 # 1. สร้างฐานข้อมูล D1
@@ -36,46 +72,33 @@ npx wrangler d1 create cpac_booking_db
 npx wrangler d1 execute cpac_booking_db --remote --file=./schema.sql
 ```
 
+`schema.sql` ใช้ `CREATE TABLE IF NOT EXISTS` / `INSERT OR IGNORE` ทั้งหมด จึงปลอดภัยที่จะรันซ้ำได้
+เสมอเมื่อ pull โค้ดใหม่มา (ใช้สร้างตาราง/seed ข้อมูลที่ยังขาดอยู่ โดยไม่กระทบข้อมูลเดิม)
+
 Deploy ด้วยตนเองได้ผ่าน `npm run deploy` (รัน `vite build` แล้วตามด้วย `wrangler deploy`) หรือให้
 Cloudflare Workers Builds (Git integration) จัดการให้อัตโนมัติทุกครั้งที่ push — ตรวจสอบใน Settings
 ของโปรเจกต์ว่า Build command ตั้งเป็น `npm run build` และมีการรัน `wrangler deploy` ต่อท้ายด้วย
 (Cloudflare จะ deploy ให้อัตโนมัติเมื่อเจอ `wrangler.toml` ที่มี `main` ชี้ไปยัง Worker entry point)
 
-Backend เป็น Cloudflare Worker ตัวเดียวที่ `worker/index.ts` ให้บริการทั้งไฟล์ static (ผ่าน binding
-`ASSETS`) และ API:
-- `GET /api/bookings`, `POST /api/bookings`
-- `PATCH /api/bookings/:id/status`
-- `GET /api/activity`, `POST /api/activity`
-- `GET /api/users`, `POST /api/users`, `PATCH /api/users/:id`, `DELETE /api/users/:id`
-- `GET /api/options`, `POST /api/options`, `PATCH /api/options/:id`
+### Migration ทีละครั้งสำหรับฐานข้อมูลเดิม
 
-หากเพิ่งอัปเดต repo และ D1 database ของคุณสร้างไว้ก่อนที่จะมีตาราง `users`/`option_items` ให้รัน
-`npx wrangler d1 execute cpac_booking_db --remote --file=./schema.sql` อีกครั้ง (ปลอดภัย รันซ้ำได้
-เพราะใช้ `IF NOT EXISTS` / `INSERT OR IGNORE`) เพื่อสร้างตารางที่ขาดและ seed ข้อมูลเดิม
-
-หากฐานข้อมูลของคุณสร้างไว้ก่อนที่จะมีฟีเจอร์ "ค่าขนส่ง" ให้รัน migration ครั้งเดียวเพิ่มเติม
-(เพิ่มคอลัมน์ `shippingFee` ในตาราง `bookings` และขยาย CHECK constraint ของ `option_items` ให้รองรับ
-`listKey = 'shippingFee'`):
+`schema.sql` จัดการ `CREATE TABLE`/`INSERT` ที่ไม่เคยมีมาก่อนให้อัตโนมัติ แต่การเปลี่ยนแปลงตาราง
+ที่มีอยู่แล้ว (เพิ่มคอลัมน์ใหม่ หรือขยาย CHECK constraint) ต้องรัน migration ไฟล์แยกครั้งเดียว
+เรียงตามลำดับที่ฟีเจอร์ถูกเพิ่มเข้ามา:
 
 ```bash
+# หากฐานข้อมูลสร้างไว้ก่อนมีฟิลด์ "เวลาถึงหน้างาน"
+npx wrangler d1 execute cpac_booking_db --remote --file=./migration_arrival_time.sql
+
+# หากฐานข้อมูลสร้างไว้ก่อนมีฟีเจอร์ "ค่าขนส่ง"
 npx wrangler d1 execute cpac_booking_db --remote --file=./migration_shipping_fee.sql
 ```
 
-## Features
-
-- Authentication พร้อม 2 สิทธิ์ผู้ใช้งาน (Admin / Staff)
-- หน้าตั้งค่าระบบสำหรับแอดมิน (`/settings`) แบ่งเป็น 3 แท็บ:
-  - จัดการผู้ใช้งาน (เพิ่ม/แก้ไข/ลบบัญชี พร้อมป้องกันลบบัญชีตนเองและแอดมินคนสุดท้าย)
-  - จัดการรายละเอียดคอนกรีต (กำลังอัด/ชนิดรถผสม/ลักษณะการเท/ชนิดงาน — เพิ่ม แก้ไข และปิดใช้งานตัวเลือกที่ใช้ในฟอร์มใบสั่งจอง โดยไม่ลบข้อมูลประวัติเดิม)
-  - ราคา (จัดการตัวเลือกค่าขนส่งที่ใช้ในฟอร์มใบสั่งจอง — เพิ่ม แก้ไข และปิดใช้งานได้เหมือนแท็บรายละเอียดคอนกรีต)
-- ปฏิทินคิวจัดส่งรายเดือนแบบ Interactive พร้อม Modal รายละเอียดงาน
-- ฟอร์มคีย์ใบสั่งจองอัจฉริยะพร้อมคำนวณราคาอัตโนมัติ — ผู้ขาย (Seller) ผูกกับบัญชีเจ้าหน้าที่ในระบบ:
-  แอดมินเลือกได้ว่าจะลงชื่อเจ้าหน้าที่คนไหนเป็นผู้ขาย ส่วนเจ้าหน้าที่จะถูกล็อกเป็นชื่อตนเองอัตโนมัติ
-  พร้อมตัวเลือก "ค่าขนส่ง" ที่จะถูกรวมเข้ายอดสุทธิอัตโนมัติ
-- Toast แจ้งเตือนแบบเรียลไทม์เมื่อมีใบสั่งจองใหม่หรือมีการเปลี่ยนสถานะ
-- รายงานยอดขายเชิงลึก (รายวัน/รายสัปดาห์/รายเดือน) พร้อมกราฟ Recharts และ Print Preview
-- ประวัติระบบ (Activity Log) สำหรับแอดมิน รวมถึงบันทึกการเข้าสู่ระบบ
+รันซ้ำได้อย่างปลอดภัยหากไม่แน่ใจว่าเคยรันไปแล้วหรือยัง — คำสั่งที่ซ้ำ (เช่น
+`ALTER TABLE ... ADD COLUMN` บนคอลัมน์ที่มีอยู่แล้ว) จะแค่ error ว่า "duplicate column name" เฉยๆ
+ไม่กระทบข้อมูลเดิม
 
 ## Tech stack
 
-React 19 · TypeScript · Vite · Tailwind CSS · Cloudflare Workers · Cloudflare D1 · Recharts · React Router · date-fns
+React 19 · TypeScript · Vite · Tailwind CSS · Cloudflare Workers · Cloudflare D1 · Recharts ·
+React Router · date-fns

@@ -5,4 +5,4 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "cpac_booking_db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "f9cd3d8d-4698-4698-aeb5-455b443f5ca3"

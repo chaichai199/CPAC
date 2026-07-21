@@ -4,7 +4,7 @@ import { CheckCircle2, Coins, Package, Printer, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
 import { useData } from '@/context/DataContext'
 import { dataStore } from '@/lib/db'
-import type { OptionItem } from '@/types'
+import type { AppUser } from '@/types'
 import { StatCard } from '@/components/reports/StatCard'
 import { SalesTrendChart, type TrendPoint } from '@/components/reports/SalesTrendChart'
 import { SalesTable } from '@/components/reports/SalesTable'
@@ -23,15 +23,15 @@ export function ReportsPage() {
   const [reportType, setReportType] = useState<ReportType>('daily')
   const [anchorDate, setAnchorDate] = useState(todayStr())
   const [sellerFilter, setSellerFilter] = useState('all')
-  const [options, setOptions] = useState<OptionItem[]>(() => dataStore.getOptionsSnapshot())
+  const [users, setUsers] = useState<AppUser[]>(() => dataStore.getUsersSnapshot())
 
-  useEffect(() => dataStore.subscribeOptions(setOptions), [])
+  useEffect(() => dataStore.subscribeUsers(setUsers), [])
 
   const sellerOptions = useMemo(() => {
-    const set = new Set<string>(options.filter((o) => o.listKey === 'seller' && o.active).map((o) => o.value))
+    const set = new Set<string>(users.filter((u) => u.role === 'staff').map((u) => u.displayName))
     bookings.forEach((b) => set.add(b.sellerName))
     return Array.from(set)
-  }, [options, bookings])
+  }, [users, bookings])
 
   const anchor = parseISO(anchorDate)
 

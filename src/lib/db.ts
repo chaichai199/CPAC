@@ -323,6 +323,10 @@ class DataStore {
     return () => this.userListeners.delete(cb)
   }
 
+  getUsersSnapshot(): AppUser[] {
+    return this.cachedUsers
+  }
+
   subscribeOptions(cb: (o: OptionItem[]) => void): Unsub {
     cb(this.cachedOptions)
     this.optionListeners.add(cb)

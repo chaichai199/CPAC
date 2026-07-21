@@ -94,4 +94,8 @@ export const OPTION_LIST_LABELS: Record<OptionListKey, string> = {
   seller: 'ผู้ขาย (Seller)',
 }
 
-export const OPTION_LIST_KEYS: OptionListKey[] = ['concreteStrength', 'mixerType', 'pourMethod', 'jobType', 'seller']
+// 'seller' is a legacy listKey kept for backward-compatible D1 rows; the
+// booking form's seller field now maps directly to staff accounts (see
+// Settings > ผู้ใช้งาน), so it's intentionally excluded from the
+// admin-managed list here.
+export const OPTION_LIST_KEYS: OptionListKey[] = ['concreteStrength', 'mixerType', 'pourMethod', 'jobType']

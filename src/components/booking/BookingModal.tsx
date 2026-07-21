@@ -3,7 +3,7 @@ import { X, Calculator } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { dataStore } from '@/lib/db'
-import type { OptionItem, OptionListKey } from '@/types'
+import type { AppUser, OptionItem, OptionListKey } from '@/types'
 import { formatCurrency, todayStr } from '@/utils/format'
 
 interface FormState {
@@ -32,7 +32,12 @@ function activeValues(options: OptionItem[], listKey: OptionListKey): string[] {
     .map((o) => o.value)
 }
 
-function buildInitialState(options: OptionItem[]): FormState {
+function defaultSellerName(currentUser: AppUser | null, staffUsers: AppUser[]): string {
+  if (currentUser?.role === 'staff') return currentUser.displayName
+  return staffUsers[0]?.displayName ?? ''
+}
+
+function buildInitialState(options: OptionItem[], currentUser: AppUser | null, staffUsers: AppUser[]): FormState {
   return {
     customerName: '',
     phone: '',
@@ -47,7 +52,7 @@ function buildInitialState(options: OptionItem[]): FormState {
     contactPerson: '',
     contactPhone: '',
     mapLink: '',
-    sellerName: activeValues(options, 'seller')[0] ?? '',
+    sellerName: defaultSellerName(currentUser, staffUsers),
     pricePerUnit: '1950',
     discount: '0',
   }
@@ -57,17 +62,27 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth()
   const { addBooking } = useData()
   const [options, setOptions] = useState<OptionItem[]>(() => dataStore.getOptionsSnapshot())
-  const [form, setForm] = useState<FormState>(() => buildInitialState(dataStore.getOptionsSnapshot()))
+  const [users, setUsers] = useState<AppUser[]>(() => dataStore.getUsersSnapshot())
+  const staffUsers = useMemo(() => users.filter((u) => u.role === 'staff'), [users])
+  const [form, setForm] = useState<FormState>(() =>
+    buildInitialState(dataStore.getOptionsSnapshot(), user, dataStore.getUsersSnapshot().filter((u) => u.role === 'staff')),
+  )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => dataStore.subscribeOptions(setOptions), [])
+  useEffect(() => dataStore.subscribeUsers(setUsers), [])
+
+  useEffect(() => {
+    if (user?.role === 'staff' && user.displayName !== form.sellerName) {
+      setForm((prev) => ({ ...prev, sellerName: user.displayName }))
+    }
+  }, [user, form.sellerName])
 
   const concreteStrengths = useMemo(() => activeValues(options, 'concreteStrength'), [options])
   const mixerTypes = useMemo(() => activeValues(options, 'mixerType'), [options])
   const pourMethods = useMemo(() => activeValues(options, 'pourMethod'), [options])
   const jobTypes = useMemo(() => activeValues(options, 'jobType'), [options])
-  const sellers = useMemo(() => activeValues(options, 'seller'), [options])
 
   const volume = parseFloat(form.volume) || 0
   const pricePerUnit = parseFloat(form.pricePerUnit) || 0
@@ -299,13 +314,18 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className="field-label">ผู้ขาย (Seller) *</label>
-                <select className="input-field" value={form.sellerName} onChange={(e) => update('sellerName', e.target.value)}>
-                  {sellers.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                {user?.role === 'admin' ? (
+                  <select className="input-field" value={form.sellerName} onChange={(e) => update('sellerName', e.target.value)}>
+                    {staffUsers.length === 0 && <option value="">ไม่มีเจ้าหน้าที่ในระบบ</option>}
+                    {staffUsers.map((u) => (
+                      <option key={u.id} value={u.displayName}>
+                        {u.displayName}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="input-field flex items-center bg-sand-100 text-stone-600">{form.sellerName}</div>
+                )}
               </div>
               <div>
                 <label className="field-label">ราคาขาย/คิว (บาท)</label>

@@ -145,6 +145,30 @@ async function handleGetActivity(env: Env): Promise<Response> {
   return Response.json(results)
 }
 
+async function handlePostActivity(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as {
+    userName: string
+    userRole: string
+    action: string
+    detail: string
+    bookingCode?: string
+  }
+
+  if (!body.userName || !body.userRole || !body.action || !body.detail) {
+    return new Response('Invalid activity log payload', { status: 400 })
+  }
+
+  const now = new Date().toISOString()
+  await env.DB.prepare(
+    `INSERT INTO activity_log (id, timestamp, userName, userRole, action, detail, bookingCode)
+     VALUES (?,?,?,?,?,?,?)`,
+  )
+    .bind(crypto.randomUUID(), now, body.userName, body.userRole, body.action, body.detail, body.bookingCode ?? null)
+    .run()
+
+  return new Response(null, { status: 201 })
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -161,6 +185,9 @@ export default {
     }
     if (url.pathname === '/api/activity' && request.method === 'GET') {
       return handleGetActivity(env)
+    }
+    if (url.pathname === '/api/activity' && request.method === 'POST') {
+      return handlePostActivity(request, env)
     }
 
     return env.ASSETS.fetch(request)

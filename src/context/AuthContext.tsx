@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import type { AppUser } from '@/types'
 import { DEMO_USERS } from '@/data/users'
+import { dataStore } from '@/lib/db'
 
 const SESSION_KEY = 'cpac_session_user_v1'
 
@@ -34,6 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(match))
     setUser(match)
+    void dataStore.logActivity({
+      userName: match.displayName,
+      userRole: match.role,
+      action: 'เข้าสู่ระบบ',
+      detail: `${match.displayName} เข้าสู่ระบบสำเร็จในฐานะ ${match.role === 'admin' ? 'แอดมิน' : 'เจ้าหน้าที่'}`,
+    })
     return { ok: true }
   }, [])
 

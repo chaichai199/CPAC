@@ -317,6 +317,25 @@ class DataStore {
     this.activityListeners.forEach((cb) => cb(this.cachedActivity))
     this.channel?.postMessage({ type: 'activity-updated', activity: this.cachedActivity })
   }
+
+  async logActivity(entry: Omit<ActivityLogEntry, 'id' | 'timestamp'>): Promise<void> {
+    if (this.mode === 'cloudflare') {
+      try {
+        const res = await fetch(API_ACTIVITY, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entry),
+        })
+        if (res.ok) {
+          await this.refreshActivityFromCloudflare()
+        }
+      } catch (err) {
+        console.warn('[BURAPACONCRETE] Failed to log activity to Cloudflare D1.', err)
+      }
+      return
+    }
+    await this.addLocalActivityLog(entry)
+  }
 }
 
 export const dataStore = new DataStore()

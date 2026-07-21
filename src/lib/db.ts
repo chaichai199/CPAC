@@ -1,19 +1,12 @@
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  onSnapshot,
-  query,
-  orderBy,
-} from 'firebase/firestore'
-import { firestore, isFirebaseConfigured } from '@/lib/firebase'
 import type { ActivityLogEntry, AppUser, Booking, BookingStatus, ConnectionMode, NewBookingInput } from '@/types'
 import { generateSeedBookings } from '@/lib/seed'
 
 const LS_BOOKINGS = 'cpac_bookings_v1'
 const LS_ACTIVITY = 'cpac_activity_v1'
 const CHANNEL_NAME = 'cpac-realtime-sync'
+const POLL_INTERVAL_MS = 4000
+const API_BOOKINGS = '/api/bookings'
+const API_ACTIVITY = '/api/activity'
 
 export interface ConnectionStatus {
   mode: ConnectionMode
@@ -25,20 +18,20 @@ export interface ConnectionStatus {
 
 type Unsub = () => void
 
-function pad(n: number, len = 2) {
-  return String(n).padStart(len, '0')
-}
-
 function genId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+function isJsonResponse(res: Response): boolean {
+  return (res.headers.get('content-type') ?? '').includes('application/json')
+}
+
 class DataStore {
-  private mode: ConnectionMode = isFirebaseConfigured ? 'firebase' : 'local'
+  private mode: ConnectionMode = 'local'
   private status: ConnectionStatus = {
-    mode: this.mode,
+    mode: 'local',
     online: navigator.onLine,
-    syncing: false,
+    syncing: true,
     lastSyncAt: null,
     error: null,
   }
@@ -62,10 +55,32 @@ class DataStore {
     window.addEventListener('online', () => this.setStatus({ online: true }))
     window.addEventListener('offline', () => this.setStatus({ online: false }))
 
-    if (this.mode === 'firebase' && firestore) {
-      this.initFirebase()
+    void this.init()
+  }
+
+  private async init() {
+    const available = await this.probeCloudflare()
+    if (available) {
+      this.mode = 'cloudflare'
+      this.setStatus({ mode: 'cloudflare' })
+      await this.refreshBookingsFromCloudflare(false)
+      await this.refreshActivityFromCloudflare()
+      this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString(), error: null })
+      window.setInterval(() => {
+        void this.refreshBookingsFromCloudflare(true)
+        void this.refreshActivityFromCloudflare()
+      }, POLL_INTERVAL_MS)
     } else {
       this.initLocal()
+    }
+  }
+
+  private async probeCloudflare(): Promise<boolean> {
+    try {
+      const res = await fetch(API_BOOKINGS, { method: 'GET' })
+      return res.ok && isJsonResponse(res)
+    } catch {
+      return false
     }
   }
 
@@ -82,63 +97,47 @@ class DataStore {
     return () => this.connectionListeners.delete(cb)
   }
 
-  // ---------- firebase mode ----------
+  // ---------- cloudflare (D1 via Pages Functions) mode ----------
 
-  private initFirebase() {
-    if (!firestore) return
-    this.setStatus({ syncing: true })
-
-    const bookingsQuery = query(collection(firestore, 'bookings'), orderBy('deliveryDate', 'desc'))
-    let firstBookingsSnapshot = true
-
-    onSnapshot(
-      bookingsQuery,
-      (snap) => {
-        const next: Booking[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Booking, 'id'>) }))
-        if (!firstBookingsSnapshot) {
-          snap.docChanges().forEach((change) => {
-            if (change.type === 'added') {
-              const b = { id: change.doc.id, ...(change.doc.data() as Omit<Booking, 'id'>) }
-              this.newBookingListeners.forEach((cb) => cb(b))
-            }
-            if (change.type === 'modified') {
-              const b = { id: change.doc.id, ...(change.doc.data() as Omit<Booking, 'id'>) }
-              const prev = this.cachedBookings.find((x) => x.id === b.id)
-              if (prev && prev.status !== b.status) {
-                this.statusChangeListeners.forEach((cb) => cb(b, prev.status))
-              }
-            }
-          })
+  private applyBookings(next: Booking[], detectChanges: boolean) {
+    if (detectChanges) {
+      const prevById = new Map(this.cachedBookings.map((b) => [b.id, b]))
+      for (const b of next) {
+        const prev = prevById.get(b.id)
+        if (!prev) {
+          this.newBookingListeners.forEach((cb) => cb(b))
+        } else if (prev.status !== b.status) {
+          this.statusChangeListeners.forEach((cb) => cb(b, prev.status))
         }
-        firstBookingsSnapshot = false
-        this.cachedBookings = next
-        this.bookingListeners.forEach((cb) => cb(next))
-        this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString(), error: null })
-      },
-      (err) => {
-        console.warn('[BURAPACONCRETE] Firestore bookings sync failed, switching to local fallback.', err)
-        this.fallbackToLocal(err.message)
-      },
-    )
-
-    const activityQuery = query(collection(firestore, 'activityLog'), orderBy('timestamp', 'desc'))
-    onSnapshot(
-      activityQuery,
-      (snap) => {
-        const next: ActivityLogEntry[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ActivityLogEntry, 'id'>) }))
-        this.cachedActivity = next
-        this.activityListeners.forEach((cb) => cb(next))
-      },
-      (err) => {
-        console.warn('[BURAPACONCRETE] Firestore activity sync failed.', err)
-      },
-    )
+      }
+    }
+    this.cachedBookings = next
+    this.bookingListeners.forEach((cb) => cb(next))
   }
 
-  private fallbackToLocal(errorMsg: string) {
-    this.mode = 'local'
-    this.setStatus({ mode: 'local', error: `Firebase unavailable: ${errorMsg}`, syncing: false })
-    this.initLocal()
+  private async refreshBookingsFromCloudflare(detectChanges: boolean) {
+    try {
+      const res = await fetch(API_BOOKINGS)
+      if (!res.ok || !isJsonResponse(res)) throw new Error(`HTTP ${res.status}`)
+      const next: Booking[] = await res.json()
+      this.applyBookings(next, detectChanges)
+      this.setStatus({ lastSyncAt: new Date().toISOString(), error: null })
+    } catch (err) {
+      console.warn('[BURAPACONCRETE] Failed to poll bookings from Cloudflare D1.', err)
+      this.setStatus({ error: err instanceof Error ? err.message : 'Sync failed' })
+    }
+  }
+
+  private async refreshActivityFromCloudflare() {
+    try {
+      const res = await fetch(API_ACTIVITY)
+      if (!res.ok || !isJsonResponse(res)) throw new Error(`HTTP ${res.status}`)
+      const next: ActivityLogEntry[] = await res.json()
+      this.cachedActivity = next
+      this.activityListeners.forEach((cb) => cb(next))
+    } catch (err) {
+      console.warn('[BURAPACONCRETE] Failed to poll activity log from Cloudflare D1.', err)
+    }
   }
 
   // ---------- local storage mode ----------
@@ -157,7 +156,7 @@ class DataStore {
 
     this.bookingListeners.forEach((cb) => cb(this.cachedBookings))
     this.activityListeners.forEach((cb) => cb(this.cachedActivity))
-    this.setStatus({ lastSyncAt: new Date().toISOString() })
+    this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString() })
   }
 
   private persistBookings() {
@@ -220,10 +219,28 @@ class DataStore {
   private generateBookingCode(dateStr: string): string {
     const compact = dateStr.replace(/-/g, '')
     const countToday = this.cachedBookings.filter((b) => b.deliveryDate === dateStr).length + 1
-    return `CPAC-${compact}-${pad(countToday, 3)}`
+    return `CPAC-${compact}-${String(countToday).padStart(3, '0')}`
   }
 
   async addBooking(input: NewBookingInput, user: AppUser): Promise<Booking> {
+    if (this.mode === 'cloudflare') {
+      this.setStatus({ syncing: true })
+      const res = await fetch(API_BOOKINGS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...input, user: { displayName: user.displayName, role: user.role } }),
+      })
+      if (!res.ok) {
+        this.setStatus({ syncing: false, error: `Failed to create booking (HTTP ${res.status})` })
+        throw new Error(`Failed to create booking (HTTP ${res.status})`)
+      }
+      const created: Booking = await res.json()
+      await this.refreshBookingsFromCloudflare(true)
+      await this.refreshActivityFromCloudflare()
+      this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString(), error: null })
+      return created
+    }
+
     const now = new Date().toISOString()
     const booking: Booking = {
       ...input,
@@ -234,24 +251,15 @@ class DataStore {
       updatedAt: now,
     }
 
-    if (this.mode === 'firebase' && firestore) {
-      this.setStatus({ syncing: true })
-      const { id, ...rest } = booking
-      void id
-      const docRef = await addDoc(collection(firestore, 'bookings'), rest)
-      booking.id = docRef.id
-      this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString() })
-    } else {
-      this.cachedBookings = [booking, ...this.cachedBookings]
-      this.persistBookings()
-      this.bookingListeners.forEach((cb) => cb(this.cachedBookings))
-      this.newBookingListeners.forEach((cb) => cb(booking))
-      this.channel?.postMessage({ type: 'bookings-updated', bookings: this.cachedBookings })
-      this.channel?.postMessage({ type: 'new-booking', booking })
-      this.setStatus({ lastSyncAt: new Date().toISOString() })
-    }
+    this.cachedBookings = [booking, ...this.cachedBookings]
+    this.persistBookings()
+    this.bookingListeners.forEach((cb) => cb(this.cachedBookings))
+    this.newBookingListeners.forEach((cb) => cb(booking))
+    this.channel?.postMessage({ type: 'bookings-updated', bookings: this.cachedBookings })
+    this.channel?.postMessage({ type: 'new-booking', booking })
+    this.setStatus({ lastSyncAt: new Date().toISOString() })
 
-    await this.addActivityLog({
+    await this.addLocalActivityLog({
       userName: user.displayName,
       userRole: user.role,
       action: 'สร้างใบสั่งจอง',
@@ -263,29 +271,37 @@ class DataStore {
   }
 
   async updateBookingStatus(bookingId: string, status: BookingStatus, user: AppUser): Promise<void> {
+    if (this.mode === 'cloudflare') {
+      this.setStatus({ syncing: true })
+      const res = await fetch(`${API_BOOKINGS}/${bookingId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, user: { displayName: user.displayName, role: user.role } }),
+      })
+      if (!res.ok) {
+        this.setStatus({ syncing: false, error: `Failed to update status (HTTP ${res.status})` })
+        throw new Error(`Failed to update status (HTTP ${res.status})`)
+      }
+      await this.refreshBookingsFromCloudflare(true)
+      await this.refreshActivityFromCloudflare()
+      this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString(), error: null })
+      return
+    }
+
     const existing = this.cachedBookings.find((b) => b.id === bookingId)
     if (!existing) return
     const prevStatus = existing.status
     const updated: Booking = { ...existing, status, updatedAt: new Date().toISOString() }
 
-    if (this.mode === 'firebase' && firestore) {
-      this.setStatus({ syncing: true })
-      await updateDoc(doc(firestore, 'bookings', bookingId), {
-        status,
-        updatedAt: updated.updatedAt,
-      })
-      this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString() })
-    } else {
-      this.cachedBookings = this.cachedBookings.map((b) => (b.id === bookingId ? updated : b))
-      this.persistBookings()
-      this.bookingListeners.forEach((cb) => cb(this.cachedBookings))
-      this.statusChangeListeners.forEach((cb) => cb(updated, prevStatus))
-      this.channel?.postMessage({ type: 'bookings-updated', bookings: this.cachedBookings })
-      this.channel?.postMessage({ type: 'status-change', booking: updated, prevStatus })
-      this.setStatus({ lastSyncAt: new Date().toISOString() })
-    }
+    this.cachedBookings = this.cachedBookings.map((b) => (b.id === bookingId ? updated : b))
+    this.persistBookings()
+    this.bookingListeners.forEach((cb) => cb(this.cachedBookings))
+    this.statusChangeListeners.forEach((cb) => cb(updated, prevStatus))
+    this.channel?.postMessage({ type: 'bookings-updated', bookings: this.cachedBookings })
+    this.channel?.postMessage({ type: 'status-change', booking: updated, prevStatus })
+    this.setStatus({ lastSyncAt: new Date().toISOString() })
 
-    await this.addActivityLog({
+    await this.addLocalActivityLog({
       userName: user.displayName,
       userRole: user.role,
       action: 'เปลี่ยนสถานะ',
@@ -294,19 +310,12 @@ class DataStore {
     })
   }
 
-  private async addActivityLog(entry: Omit<ActivityLogEntry, 'id' | 'timestamp'>): Promise<void> {
+  private async addLocalActivityLog(entry: Omit<ActivityLogEntry, 'id' | 'timestamp'>): Promise<void> {
     const full: ActivityLogEntry = { ...entry, id: genId(), timestamp: new Date().toISOString() }
-
-    if (this.mode === 'firebase' && firestore) {
-      const { id, ...rest } = full
-      void id
-      await addDoc(collection(firestore, 'activityLog'), rest)
-    } else {
-      this.cachedActivity = [full, ...this.cachedActivity].slice(0, 500)
-      this.persistActivity()
-      this.activityListeners.forEach((cb) => cb(this.cachedActivity))
-      this.channel?.postMessage({ type: 'activity-updated', activity: this.cachedActivity })
-    }
+    this.cachedActivity = [full, ...this.cachedActivity].slice(0, 500)
+    this.persistActivity()
+    this.activityListeners.forEach((cb) => cb(this.cachedActivity))
+    this.channel?.postMessage({ type: 'activity-updated', activity: this.cachedActivity })
   }
 }
 

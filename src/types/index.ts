@@ -73,4 +73,4 @@ export interface ActivityLogEntry {
   bookingCode?: string
 }
 
-export type ConnectionMode = 'firebase' | 'local'
+export type ConnectionMode = 'cloudflare' | 'local'

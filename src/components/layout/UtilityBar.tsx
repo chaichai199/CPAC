@@ -21,12 +21,12 @@ export function UtilityBar() {
           <div
             className={clsx(
               'flex items-center gap-1.5',
-              connection.mode === 'firebase' ? 'text-emerald-400' : 'text-amber-400',
+              connection.mode === 'cloudflare' ? 'text-emerald-400' : 'text-amber-400',
             )}
-            title={connection.mode === 'firebase' ? 'เชื่อมต่อ Firestore Database (Cloud)' : 'โหมดสำรองข้อมูลภายในเครื่อง (LocalStorage)'}
+            title={connection.mode === 'cloudflare' ? 'เชื่อมต่อ Cloudflare D1 Database (Cloud)' : 'โหมดสำรองข้อมูลภายในเครื่อง (LocalStorage)'}
           >
-            {connection.mode === 'firebase' ? <Cloud className="h-3.5 w-3.5" /> : <CloudOff className="h-3.5 w-3.5" />}
-            <span>{connection.mode === 'firebase' ? 'Firestore Cloud' : 'Local Storage Mode'}</span>
+            {connection.mode === 'cloudflare' ? <Cloud className="h-3.5 w-3.5" /> : <CloudOff className="h-3.5 w-3.5" />}
+            <span>{connection.mode === 'cloudflare' ? 'Cloudflare D1' : 'Local Storage Mode'}</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-stone-400">

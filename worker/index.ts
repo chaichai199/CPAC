@@ -268,6 +268,63 @@ async function handleDeleteUser(id: string, env: Env): Promise<Response> {
   return new Response(null, { status: 204 })
 }
 
+const VALID_LIST_KEYS = ['concreteStrength', 'mixerType', 'pourMethod', 'jobType', 'seller']
+
+async function handleGetOptions(env: Env): Promise<Response> {
+  const { results } = await env.DB.prepare('SELECT * FROM option_items ORDER BY listKey, sortOrder').all<{
+    id: string
+    listKey: string
+    value: string
+    active: number
+    sortOrder: number
+  }>()
+  return Response.json(results.map((r) => ({ ...r, active: Boolean(r.active) })))
+}
+
+async function handlePostOptions(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as { listKey: string; value: string }
+
+  if (!VALID_LIST_KEYS.includes(body.listKey) || !body.value?.trim()) {
+    return new Response('Invalid option payload', { status: 400 })
+  }
+
+  const maxRow = await env.DB.prepare('SELECT MAX(sortOrder) as m FROM option_items WHERE listKey = ?')
+    .bind(body.listKey)
+    .first<{ m: number | null }>()
+  const sortOrder = (maxRow?.m ?? -1) + 1
+  const id = crypto.randomUUID()
+  const value = body.value.trim()
+
+  await env.DB.prepare('INSERT INTO option_items (id, listKey, value, active, sortOrder) VALUES (?,?,?,1,?)')
+    .bind(id, body.listKey, value, sortOrder)
+    .run()
+
+  return Response.json({ id, listKey: body.listKey, value, active: true, sortOrder }, { status: 201 })
+}
+
+async function handlePatchOption(id: string, request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as Partial<{ value: string; active: boolean }>
+
+  const existing = await env.DB.prepare('SELECT * FROM option_items WHERE id = ?').bind(id).first<{
+    listKey: string
+    value: string
+    active: number
+    sortOrder: number
+  }>()
+  if (!existing) {
+    return new Response('Option not found', { status: 404 })
+  }
+
+  const nextValue = body.value?.trim() || existing.value
+  const nextActive = body.active === undefined ? Boolean(existing.active) : body.active
+
+  await env.DB.prepare('UPDATE option_items SET value = ?, active = ? WHERE id = ?')
+    .bind(nextValue, nextActive ? 1 : 0, id)
+    .run()
+
+  return Response.json({ id, listKey: existing.listKey, value: nextValue, active: nextActive, sortOrder: existing.sortOrder })
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -300,6 +357,16 @@ export default {
     }
     if (userMatch && request.method === 'DELETE') {
       return handleDeleteUser(userMatch[1], env)
+    }
+    if (url.pathname === '/api/options' && request.method === 'GET') {
+      return handleGetOptions(env)
+    }
+    if (url.pathname === '/api/options' && request.method === 'POST') {
+      return handlePostOptions(request, env)
+    }
+    const optionMatch = url.pathname.match(/^\/api\/options\/([^/]+)$/)
+    if (optionMatch && request.method === 'PATCH') {
+      return handlePatchOption(optionMatch[1], request, env)
     }
 
     return env.ASSETS.fetch(request)

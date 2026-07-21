@@ -75,3 +75,23 @@ export interface ActivityLogEntry {
 }
 
 export type ConnectionMode = 'cloudflare' | 'local'
+
+export type OptionListKey = 'concreteStrength' | 'mixerType' | 'pourMethod' | 'jobType' | 'seller'
+
+export interface OptionItem {
+  id: string
+  listKey: OptionListKey
+  value: string
+  active: boolean
+  sortOrder: number
+}
+
+export const OPTION_LIST_LABELS: Record<OptionListKey, string> = {
+  concreteStrength: 'กำลังอัดคอนกรีต',
+  mixerType: 'ชนิดรถผสม',
+  pourMethod: 'ลักษณะการเท',
+  jobType: 'ชนิดงาน',
+  seller: 'ผู้ขาย (Seller)',
+}
+
+export const OPTION_LIST_KEYS: OptionListKey[] = ['concreteStrength', 'mixerType', 'pourMethod', 'jobType', 'seller']

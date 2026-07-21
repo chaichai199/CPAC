@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { endOfMonth, endOfWeek, eachDayOfInterval, format, parseISO, startOfMonth, startOfWeek, subDays } from 'date-fns'
 import { CheckCircle2, Coins, Package, Printer, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
 import { useData } from '@/context/DataContext'
-import { SELLERS } from '@/data/users'
+import { dataStore } from '@/lib/db'
+import type { OptionItem } from '@/types'
 import { StatCard } from '@/components/reports/StatCard'
 import { SalesTrendChart, type TrendPoint } from '@/components/reports/SalesTrendChart'
 import { SalesTable } from '@/components/reports/SalesTable'
@@ -22,12 +23,15 @@ export function ReportsPage() {
   const [reportType, setReportType] = useState<ReportType>('daily')
   const [anchorDate, setAnchorDate] = useState(todayStr())
   const [sellerFilter, setSellerFilter] = useState('all')
+  const [options, setOptions] = useState<OptionItem[]>(() => dataStore.getOptionsSnapshot())
+
+  useEffect(() => dataStore.subscribeOptions(setOptions), [])
 
   const sellerOptions = useMemo(() => {
-    const set = new Set<string>(SELLERS)
+    const set = new Set<string>(options.filter((o) => o.listKey === 'seller' && o.active).map((o) => o.value))
     bookings.forEach((b) => set.add(b.sellerName))
     return Array.from(set)
-  }, [bookings])
+  }, [options, bookings])
 
   const anchor = parseISO(anchorDate)
 

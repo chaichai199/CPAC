@@ -1,18 +1,43 @@
-import type { ActivityLogEntry, AppUser, Booking, BookingStatus, ConnectionMode, NewBookingInput } from '@/types'
+import type {
+  ActivityLogEntry,
+  AppUser,
+  Booking,
+  BookingStatus,
+  ConnectionMode,
+  NewBookingInput,
+  OptionItem,
+  OptionListKey,
+} from '@/types'
+import { OPTION_LIST_LABELS } from '@/types'
 import { generateSeedBookings } from '@/lib/seed'
-import { DEMO_USERS } from '@/data/users'
+import { DEMO_USERS, CONCRETE_STRENGTHS, MIXER_TYPES, POUR_METHODS, JOB_TYPES, SELLERS } from '@/data/users'
 
 const LS_BOOKINGS = 'cpac_bookings_v1'
 const LS_ACTIVITY = 'cpac_activity_v1'
 const LS_USERS = 'cpac_users_v1'
+const LS_OPTIONS = 'cpac_options_v1'
 const CHANNEL_NAME = 'cpac-realtime-sync'
 const POLL_INTERVAL_MS = 15 * 60 * 1000
 const API_BOOKINGS = '/api/bookings'
 const API_ACTIVITY = '/api/activity'
 const API_USERS = '/api/users'
+const API_OPTIONS = '/api/options'
 
 export type NewUserInput = Omit<AppUser, 'id'>
 export type UserPatch = Partial<Omit<AppUser, 'id'>>
+export type OptionPatch = Partial<Pick<OptionItem, 'value' | 'active'>>
+
+function buildDefaultOptions(): OptionItem[] {
+  const build = (listKey: OptionListKey, values: string[]): OptionItem[] =>
+    values.map((value, i) => ({ id: genId(), listKey, value, active: true, sortOrder: i }))
+  return [
+    ...build('concreteStrength', CONCRETE_STRENGTHS),
+    ...build('mixerType', MIXER_TYPES),
+    ...build('pourMethod', POUR_METHODS),
+    ...build('jobType', JOB_TYPES),
+    ...build('seller', SELLERS),
+  ]
+}
 
 export interface ConnectionStatus {
   mode: ConnectionMode
@@ -46,12 +71,14 @@ class DataStore {
   private bookingListeners = new Set<(b: Booking[]) => void>()
   private activityListeners = new Set<(a: ActivityLogEntry[]) => void>()
   private userListeners = new Set<(u: AppUser[]) => void>()
+  private optionListeners = new Set<(o: OptionItem[]) => void>()
   private newBookingListeners = new Set<(b: Booking) => void>()
   private statusChangeListeners = new Set<(b: Booking, prevStatus: BookingStatus) => void>()
 
   private cachedBookings: Booking[] = []
   private cachedActivity: ActivityLogEntry[] = []
   private cachedUsers: AppUser[] = []
+  private cachedOptions: OptionItem[] = []
   private channel: BroadcastChannel | null = null
 
   constructor() {
@@ -74,6 +101,7 @@ class DataStore {
       await this.refreshBookingsFromCloudflare(false)
       await this.refreshActivityFromCloudflare()
       await this.refreshUsersFromCloudflare()
+      await this.refreshOptionsFromCloudflare()
       this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString(), error: null })
       window.setInterval(() => {
         void this.refreshBookingsFromCloudflare(true)
@@ -163,6 +191,20 @@ class DataStore {
     }
   }
 
+  private async refreshOptionsFromCloudflare(): Promise<OptionItem[]> {
+    try {
+      const res = await fetch(API_OPTIONS)
+      if (!res.ok || !isJsonResponse(res)) throw new Error(`HTTP ${res.status}`)
+      const next: OptionItem[] = await res.json()
+      this.cachedOptions = next
+      this.optionListeners.forEach((cb) => cb(next))
+      return next
+    } catch (err) {
+      console.warn('[BURAPACONCRETE] Failed to load options from Cloudflare D1.', err)
+      return this.cachedOptions
+    }
+  }
+
   // ---------- local storage mode ----------
 
   private initLocal() {
@@ -185,9 +227,18 @@ class DataStore {
       this.persistUsers()
     }
 
+    const rawOptions = localStorage.getItem(LS_OPTIONS)
+    if (rawOptions) {
+      this.cachedOptions = JSON.parse(rawOptions)
+    } else {
+      this.cachedOptions = buildDefaultOptions()
+      this.persistOptions()
+    }
+
     this.bookingListeners.forEach((cb) => cb(this.cachedBookings))
     this.activityListeners.forEach((cb) => cb(this.cachedActivity))
     this.userListeners.forEach((cb) => cb(this.cachedUsers))
+    this.optionListeners.forEach((cb) => cb(this.cachedOptions))
     this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString() })
   }
 
@@ -203,11 +254,16 @@ class DataStore {
     localStorage.setItem(LS_USERS, JSON.stringify(this.cachedUsers))
   }
 
+  private persistOptions() {
+    localStorage.setItem(LS_OPTIONS, JSON.stringify(this.cachedOptions))
+  }
+
   private handleChannelMessage(msg: {
     type: string
     bookings?: Booking[]
     activity?: ActivityLogEntry[]
     users?: AppUser[]
+    options?: OptionItem[]
     booking?: Booking
     prevStatus?: BookingStatus
   }) {
@@ -224,6 +280,10 @@ class DataStore {
     if (msg.type === 'users-updated' && msg.users) {
       this.cachedUsers = msg.users
       this.userListeners.forEach((cb) => cb(this.cachedUsers))
+    }
+    if (msg.type === 'options-updated' && msg.options) {
+      this.cachedOptions = msg.options
+      this.optionListeners.forEach((cb) => cb(this.cachedOptions))
     }
     if (msg.type === 'new-booking' && msg.booking) {
       this.newBookingListeners.forEach((cb) => cb(msg.booking!))
@@ -261,6 +321,16 @@ class DataStore {
     cb(this.cachedUsers)
     this.userListeners.add(cb)
     return () => this.userListeners.delete(cb)
+  }
+
+  subscribeOptions(cb: (o: OptionItem[]) => void): Unsub {
+    cb(this.cachedOptions)
+    this.optionListeners.add(cb)
+    return () => this.optionListeners.delete(cb)
+  }
+
+  getOptionsSnapshot(): OptionItem[] {
+    return this.cachedOptions
   }
 
   getMode(): ConnectionMode {
@@ -550,6 +620,107 @@ class DataStore {
       action: 'ลบผู้ใช้งาน',
       detail: `${actor.displayName} ลบผู้ใช้งาน ${existing.displayName} (@${existing.username}) สิทธิ์ ${roleLabel(existing.role)}`,
     })
+  }
+
+  // ---------- concrete option lists ----------
+
+  private nextSortOrder(listKey: OptionListKey): number {
+    const forKey = this.cachedOptions.filter((o) => o.listKey === listKey)
+    return forKey.length === 0 ? 0 : Math.max(...forKey.map((o) => o.sortOrder)) + 1
+  }
+
+  async addOption(listKey: OptionListKey, value: string, actor: AppUser): Promise<OptionItem> {
+    const label = OPTION_LIST_LABELS[listKey]
+
+    if (this.mode === 'cloudflare') {
+      const res = await fetch(API_OPTIONS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listKey, value }),
+      })
+      if (!res.ok) {
+        throw new Error(`Failed to add option (HTTP ${res.status})`)
+      }
+      const created: OptionItem = await res.json()
+      await this.refreshOptionsFromCloudflare()
+      void this.logActivity({
+        userName: actor.displayName,
+        userRole: actor.role,
+        action: 'เพิ่มตัวเลือก',
+        detail: `${actor.displayName} เพิ่ม${label}ใหม่: "${created.value}"`,
+      })
+      return created
+    }
+
+    const created: OptionItem = {
+      id: genId(),
+      listKey,
+      value: value.trim(),
+      active: true,
+      sortOrder: this.nextSortOrder(listKey),
+    }
+    this.cachedOptions = [...this.cachedOptions, created]
+    this.persistOptions()
+    this.optionListeners.forEach((cb) => cb(this.cachedOptions))
+    this.channel?.postMessage({ type: 'options-updated', options: this.cachedOptions })
+    await this.addLocalActivityLog({
+      userName: actor.displayName,
+      userRole: actor.role,
+      action: 'เพิ่มตัวเลือก',
+      detail: `${actor.displayName} เพิ่ม${label}ใหม่: "${created.value}"`,
+    })
+    return created
+  }
+
+  async updateOption(id: string, patch: OptionPatch, actor: AppUser): Promise<OptionItem> {
+    const isToggleOnly = patch.active !== undefined && patch.value === undefined
+
+    if (this.mode === 'cloudflare') {
+      const res = await fetch(`${API_OPTIONS}/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) {
+        throw new Error(`Failed to update option (HTTP ${res.status})`)
+      }
+      const updated: OptionItem = await res.json()
+      await this.refreshOptionsFromCloudflare()
+      const label = OPTION_LIST_LABELS[updated.listKey]
+      void this.logActivity({
+        userName: actor.displayName,
+        userRole: actor.role,
+        action: isToggleOnly ? (updated.active ? 'เปิดใช้งานตัวเลือก' : 'ปิดใช้งานตัวเลือก') : 'แก้ไขตัวเลือก',
+        detail: isToggleOnly
+          ? `${actor.displayName} ${updated.active ? 'เปิด' : 'ปิด'}ใช้งาน${label} "${updated.value}"`
+          : `${actor.displayName} แก้ไข${label}เป็น "${updated.value}"`,
+      })
+      return updated
+    }
+
+    const existing = this.cachedOptions.find((o) => o.id === id)
+    if (!existing) throw new Error('ไม่พบตัวเลือกนี้')
+
+    const updated: OptionItem = {
+      ...existing,
+      value: patch.value?.trim() || existing.value,
+      active: patch.active === undefined ? existing.active : patch.active,
+    }
+    this.cachedOptions = this.cachedOptions.map((o) => (o.id === id ? updated : o))
+    this.persistOptions()
+    this.optionListeners.forEach((cb) => cb(this.cachedOptions))
+    this.channel?.postMessage({ type: 'options-updated', options: this.cachedOptions })
+
+    const label = OPTION_LIST_LABELS[updated.listKey]
+    await this.addLocalActivityLog({
+      userName: actor.displayName,
+      userRole: actor.role,
+      action: isToggleOnly ? (updated.active ? 'เปิดใช้งานตัวเลือก' : 'ปิดใช้งานตัวเลือก') : 'แก้ไขตัวเลือก',
+      detail: isToggleOnly
+        ? `${actor.displayName} ${updated.active ? 'เปิด' : 'ปิด'}ใช้งาน${label} "${updated.value}"`
+        : `${actor.displayName} แก้ไข${label}เป็น "${updated.value}"`,
+    })
+    return updated
   }
 }
 

@@ -47,15 +47,18 @@ Backend เป็น Cloudflare Worker ตัวเดียวที่ `worker
 - `PATCH /api/bookings/:id/status`
 - `GET /api/activity`, `POST /api/activity`
 - `GET /api/users`, `POST /api/users`, `PATCH /api/users/:id`, `DELETE /api/users/:id`
+- `GET /api/options`, `POST /api/options`, `PATCH /api/options/:id`
 
-หากเพิ่งอัปเดต repo และ D1 database ของคุณสร้างไว้ก่อนที่จะมีตาราง `users` ให้รัน
+หากเพิ่งอัปเดต repo และ D1 database ของคุณสร้างไว้ก่อนที่จะมีตาราง `users`/`option_items` ให้รัน
 `npx wrangler d1 execute cpac_booking_db --remote --file=./schema.sql` อีกครั้ง (ปลอดภัย รันซ้ำได้
-เพราะใช้ `IF NOT EXISTS` / `INSERT OR IGNORE`) เพื่อสร้างตารางผู้ใช้งานและ seed บัญชี admin/staff เดิม
+เพราะใช้ `IF NOT EXISTS` / `INSERT OR IGNORE`) เพื่อสร้างตารางที่ขาดและ seed ข้อมูลเดิม
 
 ## Features
 
 - Authentication พร้อม 2 สิทธิ์ผู้ใช้งาน (Admin / Staff)
-- ระบบจัดการผู้ใช้งานสำหรับแอดมิน (เพิ่ม/แก้ไข/ลบบัญชี พร้อมป้องกันลบบัญชีตนเองและแอดมินคนสุดท้าย)
+- หน้าตั้งค่าระบบสำหรับแอดมิน (`/settings`) แบ่งเป็น 2 แท็บ:
+  - จัดการผู้ใช้งาน (เพิ่ม/แก้ไข/ลบบัญชี พร้อมป้องกันลบบัญชีตนเองและแอดมินคนสุดท้าย)
+  - จัดการรายละเอียดคอนกรีต (กำลังอัด/ชนิดรถผสม/ลักษณะการเท/ชนิดงาน/ผู้ขาย — เพิ่ม แก้ไข และปิดใช้งานตัวเลือกที่ใช้ในฟอร์มใบสั่งจอง โดยไม่ลบข้อมูลประวัติเดิม)
 - ปฏิทินคิวจัดส่งรายเดือนแบบ Interactive พร้อม Modal รายละเอียดงาน
 - ฟอร์มคีย์ใบสั่งจองอัจฉริยะพร้อมคำนวณราคาอัตโนมัติ
 - Toast แจ้งเตือนแบบเรียลไทม์เมื่อมีใบสั่งจองใหม่หรือมีการเปลี่ยนสถานะ

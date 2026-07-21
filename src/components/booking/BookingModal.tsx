@@ -1,8 +1,9 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { X, Calculator } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
-import { CONCRETE_STRENGTHS, JOB_TYPES, MIXER_TYPES, POUR_METHODS, SELLERS } from '@/data/users'
+import { dataStore } from '@/lib/db'
+import type { OptionItem, OptionListKey } from '@/types'
 import { formatCurrency, todayStr } from '@/utils/format'
 
 interface FormState {
@@ -24,31 +25,49 @@ interface FormState {
   discount: string
 }
 
-const initialState: FormState = {
-  customerName: '',
-  phone: '',
-  deliveryDate: todayStr(),
-  deliveryTime: '08:00',
-  arrivalTime: '',
-  concreteStrength: CONCRETE_STRENGTHS[2],
-  volume: '',
-  mixerType: MIXER_TYPES[0],
-  pourMethod: POUR_METHODS[0],
-  jobType: JOB_TYPES[0],
-  contactPerson: '',
-  contactPhone: '',
-  mapLink: '',
-  sellerName: SELLERS[0],
-  pricePerUnit: '1950',
-  discount: '0',
+function activeValues(options: OptionItem[], listKey: OptionListKey): string[] {
+  return options
+    .filter((o) => o.listKey === listKey && o.active)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((o) => o.value)
+}
+
+function buildInitialState(options: OptionItem[]): FormState {
+  return {
+    customerName: '',
+    phone: '',
+    deliveryDate: todayStr(),
+    deliveryTime: '08:00',
+    arrivalTime: '',
+    concreteStrength: activeValues(options, 'concreteStrength')[0] ?? '',
+    volume: '',
+    mixerType: activeValues(options, 'mixerType')[0] ?? '',
+    pourMethod: activeValues(options, 'pourMethod')[0] ?? '',
+    jobType: activeValues(options, 'jobType')[0] ?? '',
+    contactPerson: '',
+    contactPhone: '',
+    mapLink: '',
+    sellerName: activeValues(options, 'seller')[0] ?? '',
+    pricePerUnit: '1950',
+    discount: '0',
+  }
 }
 
 export function BookingModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth()
   const { addBooking } = useData()
-  const [form, setForm] = useState<FormState>(initialState)
+  const [options, setOptions] = useState<OptionItem[]>(() => dataStore.getOptionsSnapshot())
+  const [form, setForm] = useState<FormState>(() => buildInitialState(dataStore.getOptionsSnapshot()))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => dataStore.subscribeOptions(setOptions), [])
+
+  const concreteStrengths = useMemo(() => activeValues(options, 'concreteStrength'), [options])
+  const mixerTypes = useMemo(() => activeValues(options, 'mixerType'), [options])
+  const pourMethods = useMemo(() => activeValues(options, 'pourMethod'), [options])
+  const jobTypes = useMemo(() => activeValues(options, 'jobType'), [options])
+  const sellers = useMemo(() => activeValues(options, 'seller'), [options])
 
   const volume = parseFloat(form.volume) || 0
   const pricePerUnit = parseFloat(form.pricePerUnit) || 0
@@ -185,7 +204,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
                   value={form.concreteStrength}
                   onChange={(e) => update('concreteStrength', e.target.value)}
                 >
-                  {CONCRETE_STRENGTHS.map((s) => (
+                  {concreteStrengths.map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>
@@ -208,7 +227,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
               <div>
                 <label className="field-label">ชนิดรถผสม</label>
                 <select className="input-field" value={form.mixerType} onChange={(e) => update('mixerType', e.target.value)}>
-                  {MIXER_TYPES.map((m) => (
+                  {mixerTypes.map((m) => (
                     <option key={m} value={m}>
                       {m}
                     </option>
@@ -218,7 +237,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
               <div>
                 <label className="field-label">ลักษณะการเท</label>
                 <select className="input-field" value={form.pourMethod} onChange={(e) => update('pourMethod', e.target.value)}>
-                  {POUR_METHODS.map((m) => (
+                  {pourMethods.map((m) => (
                     <option key={m} value={m}>
                       {m}
                     </option>
@@ -228,7 +247,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
               <div>
                 <label className="field-label">ชนิดงาน</label>
                 <select className="input-field" value={form.jobType} onChange={(e) => update('jobType', e.target.value)}>
-                  {JOB_TYPES.map((j) => (
+                  {jobTypes.map((j) => (
                     <option key={j} value={j}>
                       {j}
                     </option>
@@ -281,7 +300,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
               <div>
                 <label className="field-label">ผู้ขาย (Seller) *</label>
                 <select className="input-field" value={form.sellerName} onChange={(e) => update('sellerName', e.target.value)}>
-                  {SELLERS.map((s) => (
+                  {sellers.map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>

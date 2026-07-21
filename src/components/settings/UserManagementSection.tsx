@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext'
 import { UserModal } from '@/components/users/UserModal'
 import type { AppUser } from '@/types'
 
-export function UserManagementPage() {
+export function UserManagementSection() {
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState<AppUser[]>([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -42,12 +42,9 @@ export function UserManagementPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-stone-900 sm:text-3xl">จัดการผู้ใช้งาน</h1>
-          <p className="mt-1 text-sm text-stone-500">เพิ่ม แก้ไข หรือลบบัญชีผู้ใช้งานและสิทธิ์การเข้าถึงระบบ</p>
-        </div>
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-stone-500">เพิ่ม แก้ไข หรือลบบัญชีผู้ใช้งานและสิทธิ์การเข้าถึงระบบ</p>
         <button onClick={openAddModal} className="btn-primary">
           <PlusCircle className="h-4 w-4" />
           เพิ่มผู้ใช้งาน

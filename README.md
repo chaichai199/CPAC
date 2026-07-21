@@ -2,7 +2,7 @@
 
 ระบบรับจองและบริหารจัดการคิวส่งคอนกรีตผสมเสร็จ (Ready-Mix Concrete Booking) สำหรับ BURAPACONCRETE
 สร้างด้วย React (Vite) + TypeScript + Tailwind CSS ในสไตล์ Warm-Minimalist พร้อมระบบฐานข้อมูลบน
-Cloudflare D1 ผ่าน Cloudflare Worker (โพลข้อมูลทุก 4 วินาทีเพื่อจำลอง Real-time) และรองรับ LocalStorage
+Cloudflare D1 ผ่าน Cloudflare Worker (โพลข้อมูลทุก 15 นาที) และรองรับ LocalStorage
 Fallback อัตโนมัติเมื่อไม่ได้เชื่อมต่อคลาวด์ (เช่นตอน `npm run dev` บนเครื่อง)
 
 ## Getting started

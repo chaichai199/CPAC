@@ -4,7 +4,7 @@ import { generateSeedBookings } from '@/lib/seed'
 const LS_BOOKINGS = 'cpac_bookings_v1'
 const LS_ACTIVITY = 'cpac_activity_v1'
 const CHANNEL_NAME = 'cpac-realtime-sync'
-const POLL_INTERVAL_MS = 4000
+const POLL_INTERVAL_MS = 15 * 60 * 1000
 const API_BOOKINGS = '/api/bookings'
 const API_ACTIVITY = '/api/activity'
 

@@ -1,13 +1,12 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import type { AppUser } from '@/types'
-import { DEMO_USERS } from '@/data/users'
 import { dataStore } from '@/lib/db'
 
 const SESSION_KEY = 'cpac_session_user_v1'
 
 interface AuthContextValue {
   user: AppUser | null
-  login: (username: string, password: string) => { ok: boolean; message?: string }
+  login: (username: string, password: string) => Promise<{ ok: boolean; message?: string }>
   logout: () => void
 }
 
@@ -26,10 +25,8 @@ function loadSession(): AppUser | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(() => loadSession())
 
-  const login = useCallback((username: string, password: string) => {
-    const match = DEMO_USERS.find(
-      (u) => u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password,
-    )
+  const login = useCallback(async (username: string, password: string) => {
+    const match = await dataStore.findUserByCredentials(username, password)
     if (!match) {
       return { ok: false, message: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' }
     }

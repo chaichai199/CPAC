@@ -169,6 +169,103 @@ async function handlePostActivity(request: Request, env: Env): Promise<Response>
   return new Response(null, { status: 201 })
 }
 
+const VALID_ROLES = ['admin', 'staff']
+
+async function handleGetUsers(env: Env): Promise<Response> {
+  const { results } = await env.DB.prepare('SELECT id, username, password, displayName, role FROM users ORDER BY username').all()
+  return Response.json(results)
+}
+
+async function handlePostUsers(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as {
+    username: string
+    password: string
+    displayName: string
+    role: string
+  }
+
+  if (!body.username?.trim() || !body.password?.trim() || !body.displayName?.trim() || !VALID_ROLES.includes(body.role)) {
+    return new Response('Invalid user payload', { status: 400 })
+  }
+
+  const existing = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(body.username.trim()).first()
+  if (existing) {
+    return new Response('Username already exists', { status: 409 })
+  }
+
+  const id = crypto.randomUUID()
+  await env.DB.prepare('INSERT INTO users (id, username, password, displayName, role) VALUES (?,?,?,?,?)')
+    .bind(id, body.username.trim(), body.password, body.displayName.trim(), body.role)
+    .run()
+
+  return Response.json({ id, username: body.username.trim(), password: body.password, displayName: body.displayName.trim(), role: body.role }, { status: 201 })
+}
+
+async function handlePatchUser(id: string, request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as Partial<{
+    username: string
+    password: string
+    displayName: string
+    role: string
+  }>
+
+  const existing = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first<{
+    username: string
+    password: string
+    displayName: string
+    role: string
+  }>()
+  if (!existing) {
+    return new Response('User not found', { status: 404 })
+  }
+
+  if (body.role && !VALID_ROLES.includes(body.role)) {
+    return new Response('Invalid role', { status: 400 })
+  }
+
+  const nextUsername = body.username?.trim() || existing.username
+  if (nextUsername !== existing.username) {
+    const clash = await env.DB.prepare('SELECT id FROM users WHERE username = ? AND id != ?').bind(nextUsername, id).first()
+    if (clash) {
+      return new Response('Username already exists', { status: 409 })
+    }
+  }
+
+  if (existing.role === 'admin' && body.role === 'staff') {
+    const adminCount = await env.DB.prepare("SELECT COUNT(*) as c FROM users WHERE role = 'admin'").first<{ c: number }>()
+    if ((adminCount?.c ?? 0) <= 1) {
+      return new Response('Cannot demote the last remaining admin', { status: 400 })
+    }
+  }
+
+  const nextPassword = body.password?.trim() || existing.password
+  const nextDisplayName = body.displayName?.trim() || existing.displayName
+  const nextRole = body.role || existing.role
+
+  await env.DB.prepare('UPDATE users SET username = ?, password = ?, displayName = ?, role = ? WHERE id = ?')
+    .bind(nextUsername, nextPassword, nextDisplayName, nextRole, id)
+    .run()
+
+  return Response.json({ id, username: nextUsername, password: nextPassword, displayName: nextDisplayName, role: nextRole })
+}
+
+async function handleDeleteUser(id: string, env: Env): Promise<Response> {
+  const existing = await env.DB.prepare('SELECT role FROM users WHERE id = ?').bind(id).first<{ role: string }>()
+  if (!existing) {
+    return new Response('User not found', { status: 404 })
+  }
+
+  if (existing.role === 'admin') {
+    const adminCount = await env.DB.prepare("SELECT COUNT(*) as c FROM users WHERE role = 'admin'").first<{ c: number }>()
+    if ((adminCount?.c ?? 0) <= 1) {
+      return new Response('Cannot delete the last remaining admin', { status: 400 })
+    }
+  }
+
+  await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run()
+  return new Response(null, { status: 204 })
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -188,6 +285,19 @@ export default {
     }
     if (url.pathname === '/api/activity' && request.method === 'POST') {
       return handlePostActivity(request, env)
+    }
+    if (url.pathname === '/api/users' && request.method === 'GET') {
+      return handleGetUsers(env)
+    }
+    if (url.pathname === '/api/users' && request.method === 'POST') {
+      return handlePostUsers(request, env)
+    }
+    const userMatch = url.pathname.match(/^\/api\/users\/([^/]+)$/)
+    if (userMatch && request.method === 'PATCH') {
+      return handlePatchUser(userMatch[1], request, env)
+    }
+    if (userMatch && request.method === 'DELETE') {
+      return handleDeleteUser(userMatch[1], env)
     }
 
     return env.ASSETS.fetch(request)

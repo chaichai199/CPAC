@@ -8,14 +8,17 @@ export function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   if (user) {
     return <Navigate to="/" replace />
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    const result = login(username, password)
+    setSubmitting(true)
+    const result = await login(username, password)
+    setSubmitting(false)
     if (!result.ok) {
       setError(result.message ?? 'เข้าสู่ระบบไม่สำเร็จ')
     }
@@ -63,8 +66,8 @@ export function LoginPage() {
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-          <button type="submit" className="btn-primary w-full !py-3">
-            เข้าสู่ระบบ
+          <button type="submit" disabled={submitting} className="btn-primary w-full !py-3">
+            {submitting ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
           </button>
 
           <div className="rounded-xl bg-sand-50 px-4 py-3 text-xs leading-relaxed text-stone-500">

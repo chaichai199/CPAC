@@ -8,6 +8,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ReportsPage } from '@/pages/ReportsPage'
 import { HistoryPage } from '@/pages/HistoryPage'
+import { UserManagementPage } from '@/pages/UserManagementPage'
 
 function App() {
   return (
@@ -32,6 +33,14 @@ function App() {
                   element={
                     <ProtectedRoute requireRole="admin">
                       <HistoryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/users"
+                  element={
+                    <ProtectedRoute requireRole="admin">
+                      <UserManagementPage />
                     </ProtectedRoute>
                   }
                 />

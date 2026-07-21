@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { CalendarDays, History, LogOut, PlusCircle, TrendingUp, Truck } from 'lucide-react'
+import { CalendarDays, History, LogOut, PlusCircle, TrendingUp, Truck, UserCog } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 
 export function NavBar({ onNewBooking }: { onNewBooking: () => void }) {
@@ -43,6 +43,12 @@ export function NavBar({ onNewBooking }: { onNewBooking: () => void }) {
             <NavLink to="/history" className={navLinkClass}>
               <History className="h-4 w-4" />
               ประวัติระบบ
+            </NavLink>
+          )}
+          {user.role === 'admin' && (
+            <NavLink to="/users" className={navLinkClass}>
+              <UserCog className="h-4 w-4" />
+              จัดการผู้ใช้งาน
             </NavLink>
           )}
         </nav>
@@ -89,6 +95,12 @@ export function NavBar({ onNewBooking }: { onNewBooking: () => void }) {
           <NavLink to="/history" className={navLinkClass}>
             <History className="h-4 w-4" />
             ประวัติ
+          </NavLink>
+        )}
+        {user.role === 'admin' && (
+          <NavLink to="/users" className={navLinkClass}>
+            <UserCog className="h-4 w-4" />
+            ผู้ใช้งาน
           </NavLink>
         )}
       </nav>

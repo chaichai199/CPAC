@@ -1,12 +1,18 @@
 import type { ActivityLogEntry, AppUser, Booking, BookingStatus, ConnectionMode, NewBookingInput } from '@/types'
 import { generateSeedBookings } from '@/lib/seed'
+import { DEMO_USERS } from '@/data/users'
 
 const LS_BOOKINGS = 'cpac_bookings_v1'
 const LS_ACTIVITY = 'cpac_activity_v1'
+const LS_USERS = 'cpac_users_v1'
 const CHANNEL_NAME = 'cpac-realtime-sync'
 const POLL_INTERVAL_MS = 15 * 60 * 1000
 const API_BOOKINGS = '/api/bookings'
 const API_ACTIVITY = '/api/activity'
+const API_USERS = '/api/users'
+
+export type NewUserInput = Omit<AppUser, 'id'>
+export type UserPatch = Partial<Omit<AppUser, 'id'>>
 
 export interface ConnectionStatus {
   mode: ConnectionMode
@@ -39,11 +45,13 @@ class DataStore {
   private connectionListeners = new Set<(s: ConnectionStatus) => void>()
   private bookingListeners = new Set<(b: Booking[]) => void>()
   private activityListeners = new Set<(a: ActivityLogEntry[]) => void>()
+  private userListeners = new Set<(u: AppUser[]) => void>()
   private newBookingListeners = new Set<(b: Booking) => void>()
   private statusChangeListeners = new Set<(b: Booking, prevStatus: BookingStatus) => void>()
 
   private cachedBookings: Booking[] = []
   private cachedActivity: ActivityLogEntry[] = []
+  private cachedUsers: AppUser[] = []
   private channel: BroadcastChannel | null = null
 
   constructor() {
@@ -65,6 +73,7 @@ class DataStore {
       this.setStatus({ mode: 'cloudflare' })
       await this.refreshBookingsFromCloudflare(false)
       await this.refreshActivityFromCloudflare()
+      await this.refreshUsersFromCloudflare()
       this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString(), error: null })
       window.setInterval(() => {
         void this.refreshBookingsFromCloudflare(true)
@@ -140,6 +149,20 @@ class DataStore {
     }
   }
 
+  private async refreshUsersFromCloudflare(): Promise<AppUser[]> {
+    try {
+      const res = await fetch(API_USERS)
+      if (!res.ok || !isJsonResponse(res)) throw new Error(`HTTP ${res.status}`)
+      const next: AppUser[] = await res.json()
+      this.cachedUsers = next
+      this.userListeners.forEach((cb) => cb(next))
+      return next
+    } catch (err) {
+      console.warn('[BURAPACONCRETE] Failed to load users from Cloudflare D1.', err)
+      return this.cachedUsers
+    }
+  }
+
   // ---------- local storage mode ----------
 
   private initLocal() {
@@ -154,8 +177,17 @@ class DataStore {
     const rawActivity = localStorage.getItem(LS_ACTIVITY)
     this.cachedActivity = rawActivity ? JSON.parse(rawActivity) : []
 
+    const rawUsers = localStorage.getItem(LS_USERS)
+    if (rawUsers) {
+      this.cachedUsers = JSON.parse(rawUsers)
+    } else {
+      this.cachedUsers = DEMO_USERS
+      this.persistUsers()
+    }
+
     this.bookingListeners.forEach((cb) => cb(this.cachedBookings))
     this.activityListeners.forEach((cb) => cb(this.cachedActivity))
+    this.userListeners.forEach((cb) => cb(this.cachedUsers))
     this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString() })
   }
 
@@ -167,7 +199,18 @@ class DataStore {
     localStorage.setItem(LS_ACTIVITY, JSON.stringify(this.cachedActivity))
   }
 
-  private handleChannelMessage(msg: { type: string; bookings?: Booking[]; activity?: ActivityLogEntry[]; booking?: Booking; prevStatus?: BookingStatus }) {
+  private persistUsers() {
+    localStorage.setItem(LS_USERS, JSON.stringify(this.cachedUsers))
+  }
+
+  private handleChannelMessage(msg: {
+    type: string
+    bookings?: Booking[]
+    activity?: ActivityLogEntry[]
+    users?: AppUser[]
+    booking?: Booking
+    prevStatus?: BookingStatus
+  }) {
     if (this.mode !== 'local') return
     if (msg.type === 'bookings-updated' && msg.bookings) {
       this.cachedBookings = msg.bookings
@@ -177,6 +220,10 @@ class DataStore {
     if (msg.type === 'activity-updated' && msg.activity) {
       this.cachedActivity = msg.activity
       this.activityListeners.forEach((cb) => cb(this.cachedActivity))
+    }
+    if (msg.type === 'users-updated' && msg.users) {
+      this.cachedUsers = msg.users
+      this.userListeners.forEach((cb) => cb(this.cachedUsers))
     }
     if (msg.type === 'new-booking' && msg.booking) {
       this.newBookingListeners.forEach((cb) => cb(msg.booking!))
@@ -210,8 +257,25 @@ class DataStore {
     return () => this.statusChangeListeners.delete(cb)
   }
 
+  subscribeUsers(cb: (u: AppUser[]) => void): Unsub {
+    cb(this.cachedUsers)
+    this.userListeners.add(cb)
+    return () => this.userListeners.delete(cb)
+  }
+
   getMode(): ConnectionMode {
     return this.mode
+  }
+
+  // ---------- authentication ----------
+
+  async findUserByCredentials(username: string, password: string): Promise<AppUser | null> {
+    const users = this.mode === 'cloudflare' ? await this.refreshUsersFromCloudflare() : this.cachedUsers
+    return (
+      users.find(
+        (u) => u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password,
+      ) ?? null
+    )
   }
 
   // ---------- mutations ----------
@@ -335,6 +399,112 @@ class DataStore {
       return
     }
     await this.addLocalActivityLog(entry)
+  }
+
+  // ---------- user management ----------
+
+  async addUser(input: NewUserInput): Promise<AppUser> {
+    if (this.mode === 'cloudflare') {
+      const res = await fetch(API_USERS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!res.ok) {
+        throw new Error(res.status === 409 ? 'มีชื่อผู้ใช้งานนี้อยู่แล้ว' : `Failed to create user (HTTP ${res.status})`)
+      }
+      const created: AppUser = await res.json()
+      await this.refreshUsersFromCloudflare()
+      return created
+    }
+
+    const usernameLower = input.username.trim().toLowerCase()
+    if (this.cachedUsers.some((u) => u.username.toLowerCase() === usernameLower)) {
+      throw new Error('มีชื่อผู้ใช้งานนี้อยู่แล้ว')
+    }
+
+    const created: AppUser = { ...input, id: genId(), username: input.username.trim(), displayName: input.displayName.trim() }
+    this.cachedUsers = [...this.cachedUsers, created]
+    this.persistUsers()
+    this.userListeners.forEach((cb) => cb(this.cachedUsers))
+    this.channel?.postMessage({ type: 'users-updated', users: this.cachedUsers })
+    return created
+  }
+
+  async updateUser(id: string, patch: UserPatch): Promise<AppUser> {
+    if (this.mode === 'cloudflare') {
+      const res = await fetch(`${API_USERS}/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) {
+        throw new Error(
+          res.status === 409
+            ? 'มีชื่อผู้ใช้งานนี้อยู่แล้ว'
+            : res.status === 400
+              ? 'ไม่สามารถลดสิทธิ์แอดมินคนสุดท้ายได้'
+              : `Failed to update user (HTTP ${res.status})`,
+        )
+      }
+      const updated: AppUser = await res.json()
+      await this.refreshUsersFromCloudflare()
+      return updated
+    }
+
+    const existing = this.cachedUsers.find((u) => u.id === id)
+    if (!existing) throw new Error('ไม่พบผู้ใช้งานนี้')
+
+    if (patch.username) {
+      const usernameLower = patch.username.trim().toLowerCase()
+      if (this.cachedUsers.some((u) => u.id !== id && u.username.toLowerCase() === usernameLower)) {
+        throw new Error('มีชื่อผู้ใช้งานนี้อยู่แล้ว')
+      }
+    }
+    if (existing.role === 'admin' && patch.role === 'staff') {
+      const adminCount = this.cachedUsers.filter((u) => u.role === 'admin').length
+      if (adminCount <= 1) {
+        throw new Error('ไม่สามารถลดสิทธิ์แอดมินคนสุดท้ายได้')
+      }
+    }
+
+    const updated: AppUser = {
+      ...existing,
+      ...patch,
+      username: patch.username?.trim() || existing.username,
+      displayName: patch.displayName?.trim() || existing.displayName,
+      password: patch.password?.trim() || existing.password,
+    }
+    this.cachedUsers = this.cachedUsers.map((u) => (u.id === id ? updated : u))
+    this.persistUsers()
+    this.userListeners.forEach((cb) => cb(this.cachedUsers))
+    this.channel?.postMessage({ type: 'users-updated', users: this.cachedUsers })
+    return updated
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    if (this.mode === 'cloudflare') {
+      const res = await fetch(`${API_USERS}/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        throw new Error(res.status === 400 ? 'ไม่สามารถลบแอดมินคนสุดท้ายได้' : `Failed to delete user (HTTP ${res.status})`)
+      }
+      await this.refreshUsersFromCloudflare()
+      return
+    }
+
+    const existing = this.cachedUsers.find((u) => u.id === id)
+    if (!existing) return
+    if (existing.role === 'admin') {
+      const adminCount = this.cachedUsers.filter((u) => u.role === 'admin').length
+      if (adminCount <= 1) {
+        throw new Error('ไม่สามารถลบแอดมินคนสุดท้ายได้')
+      }
+    }
+
+    this.cachedUsers = this.cachedUsers.filter((u) => u.id !== id)
+    this.persistUsers()
+    this.userListeners.forEach((cb) => cb(this.cachedUsers))
+    this.channel?.postMessage({ type: 'users-updated', users: this.cachedUsers })
   }
 }
 

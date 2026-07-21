@@ -10,7 +10,7 @@ import type {
 } from '@/types'
 import { OPTION_LIST_LABELS } from '@/types'
 import { generateSeedBookings } from '@/lib/seed'
-import { DEMO_USERS, CONCRETE_STRENGTHS, MIXER_TYPES, POUR_METHODS, JOB_TYPES, SELLERS } from '@/data/users'
+import { DEMO_USERS, CONCRETE_STRENGTHS, MIXER_TYPES, POUR_METHODS, JOB_TYPES, SELLERS, SHIPPING_FEES } from '@/data/users'
 
 const LS_BOOKINGS = 'cpac_bookings_v1'
 const LS_ACTIVITY = 'cpac_activity_v1'
@@ -36,6 +36,7 @@ function buildDefaultOptions(): OptionItem[] {
     ...build('pourMethod', POUR_METHODS),
     ...build('jobType', JOB_TYPES),
     ...build('seller', SELLERS),
+    ...build('shippingFee', SHIPPING_FEES),
   ]
 }
 

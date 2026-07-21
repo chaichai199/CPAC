@@ -38,3 +38,5 @@ export const POUR_METHODS = [
 export const JOB_TYPES = ['ฐานราก', 'เสา', 'คาน', 'พื้น', 'ถนน', 'กำแพงกันดิน', 'อื่นๆ']
 
 export const CONCRETE_STRENGTHS = ['180 ksc', '210 ksc', '240 ksc', '280 ksc', '320 ksc', '350 ksc']
+
+export const SHIPPING_FEES = ['0', '375', '750']

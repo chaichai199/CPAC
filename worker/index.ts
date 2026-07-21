@@ -36,6 +36,7 @@ async function handlePostBookings(request: Request, env: Env): Promise<Response>
     sellerName: string
     pricePerUnit: number
     discount: number
+    shippingFee: number
     totalPrice: number
     createdBy: string
   }
@@ -57,8 +58,8 @@ async function handlePostBookings(request: Request, env: Env): Promise<Response>
     `INSERT INTO bookings (
       id, code, customerName, phone, deliveryDate, deliveryTime, arrivalTime, concreteStrength, volume,
       mixerType, pourMethod, jobType, contactPerson, contactPhone, mapLink, sellerName,
-      pricePerUnit, discount, totalPrice, status, createdAt, updatedAt, createdBy
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      pricePerUnit, discount, shippingFee, totalPrice, status, createdAt, updatedAt, createdBy
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   )
     .bind(
       id,
@@ -79,6 +80,7 @@ async function handlePostBookings(request: Request, env: Env): Promise<Response>
       input.sellerName,
       input.pricePerUnit,
       input.discount,
+      input.shippingFee ?? 0,
       input.totalPrice,
       'pending',
       now,
@@ -268,7 +270,7 @@ async function handleDeleteUser(id: string, env: Env): Promise<Response> {
   return new Response(null, { status: 204 })
 }
 
-const VALID_LIST_KEYS = ['concreteStrength', 'mixerType', 'pourMethod', 'jobType', 'seller']
+const VALID_LIST_KEYS = ['concreteStrength', 'mixerType', 'pourMethod', 'jobType', 'seller', 'shippingFee']
 
 async function handleGetOptions(env: Env): Promise<Response> {
   const { results } = await env.DB.prepare('SELECT * FROM option_items ORDER BY listKey, sortOrder').all<{

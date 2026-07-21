@@ -23,6 +23,7 @@ interface FormState {
   sellerName: string
   pricePerUnit: string
   discount: string
+  shippingFee: string
 }
 
 function activeValues(options: OptionItem[], listKey: OptionListKey): string[] {
@@ -55,6 +56,7 @@ function buildInitialState(options: OptionItem[], currentUser: AppUser | null, s
     sellerName: defaultSellerName(currentUser, staffUsers),
     pricePerUnit: '1950',
     discount: '0',
+    shippingFee: activeValues(options, 'shippingFee').includes('0') ? '0' : (activeValues(options, 'shippingFee')[0] ?? '0'),
   }
 }
 
@@ -83,11 +85,16 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
   const mixerTypes = useMemo(() => activeValues(options, 'mixerType'), [options])
   const pourMethods = useMemo(() => activeValues(options, 'pourMethod'), [options])
   const jobTypes = useMemo(() => activeValues(options, 'jobType'), [options])
+  const shippingFees = useMemo(() => activeValues(options, 'shippingFee'), [options])
 
   const volume = parseFloat(form.volume) || 0
   const pricePerUnit = parseFloat(form.pricePerUnit) || 0
   const discount = parseFloat(form.discount) || 0
-  const totalPrice = useMemo(() => Math.max(volume * pricePerUnit - discount, 0), [volume, pricePerUnit, discount])
+  const shippingFee = parseFloat(form.shippingFee) || 0
+  const totalPrice = useMemo(
+    () => Math.max(volume * pricePerUnit - discount, 0) + shippingFee,
+    [volume, pricePerUnit, discount, shippingFee],
+  )
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -125,6 +132,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
       sellerName: form.sellerName,
       pricePerUnit,
       discount,
+      shippingFee,
       totalPrice,
       createdBy: user.displayName,
     })
@@ -311,7 +319,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
             <h4 className="mb-3 font-display text-sm font-bold uppercase tracking-wide text-sand-600">
               ราคาและผู้ขาย
             </h4>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div>
                 <label className="field-label">ผู้ขาย (Seller) *</label>
                 {user?.role === 'admin' ? (
@@ -346,6 +354,16 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
                   value={form.discount}
                   onChange={(e) => update('discount', e.target.value)}
                 />
+              </div>
+              <div>
+                <label className="field-label">ค่าขนส่ง (บาท)</label>
+                <select className="input-field font-mono" value={form.shippingFee} onChange={(e) => update('shippingFee', e.target.value)}>
+                  {shippingFees.map((s) => (
+                    <option key={s} value={s}>
+                      {formatCurrency(Number(s))}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="field-label flex items-center gap-1">

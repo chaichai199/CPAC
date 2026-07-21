@@ -53,6 +53,7 @@ export interface Booking {
   sellerName: string
   pricePerUnit: number
   discount: number
+  shippingFee: number
   totalPrice: number
   status: BookingStatus
   createdAt: string
@@ -76,7 +77,7 @@ export interface ActivityLogEntry {
 
 export type ConnectionMode = 'cloudflare' | 'local'
 
-export type OptionListKey = 'concreteStrength' | 'mixerType' | 'pourMethod' | 'jobType' | 'seller'
+export type OptionListKey = 'concreteStrength' | 'mixerType' | 'pourMethod' | 'jobType' | 'seller' | 'shippingFee'
 
 export interface OptionItem {
   id: string
@@ -92,6 +93,7 @@ export const OPTION_LIST_LABELS: Record<OptionListKey, string> = {
   pourMethod: 'ลักษณะการเท',
   jobType: 'ชนิดงาน',
   seller: 'ผู้ขาย (Seller)',
+  shippingFee: 'ค่าขนส่ง',
 }
 
 // 'seller' is a legacy listKey kept for backward-compatible D1 rows; the
@@ -99,3 +101,5 @@ export const OPTION_LIST_LABELS: Record<OptionListKey, string> = {
 // Settings > ผู้ใช้งาน), so it's intentionally excluded from the
 // admin-managed list here.
 export const OPTION_LIST_KEYS: OptionListKey[] = ['concreteStrength', 'mixerType', 'pourMethod', 'jobType']
+
+export const PRICE_OPTION_LIST_KEYS: OptionListKey[] = ['shippingFee']

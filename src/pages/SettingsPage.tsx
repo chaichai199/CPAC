@@ -2,12 +2,14 @@ import { useState } from 'react'
 import clsx from 'clsx'
 import { UserManagementSection } from '@/components/settings/UserManagementSection'
 import { ConcreteOptionsSection } from '@/components/settings/ConcreteOptionsSection'
+import { PriceOptionsSection } from '@/components/settings/PriceOptionsSection'
 
-type SettingsTab = 'users' | 'concrete'
+type SettingsTab = 'users' | 'concrete' | 'price'
 
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'users', label: 'ผู้ใช้งาน' },
   { key: 'concrete', label: 'รายละเอียดคอนกรีต' },
+  { key: 'price', label: 'ราคา' },
 ]
 
 export function SettingsPage() {
@@ -35,7 +37,9 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {tab === 'users' ? <UserManagementSection /> : <ConcreteOptionsSection />}
+      {tab === 'users' && <UserManagementSection />}
+      {tab === 'concrete' && <ConcreteOptionsSection />}
+      {tab === 'price' && <PriceOptionsSection />}
     </div>
   )
 }

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   sellerName TEXT NOT NULL,
   pricePerUnit REAL NOT NULL,
   discount REAL NOT NULL,
+  shippingFee REAL NOT NULL DEFAULT 0,
   totalPrice REAL NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'dispatched', 'completed', 'cancelled')),
   createdAt TEXT NOT NULL,
@@ -56,7 +57,7 @@ INSERT OR IGNORE INTO users (id, username, password, displayName, role) VALUES
 
 CREATE TABLE IF NOT EXISTS option_items (
   id TEXT PRIMARY KEY,
-  listKey TEXT NOT NULL CHECK (listKey IN ('concreteStrength', 'mixerType', 'pourMethod', 'jobType', 'seller')),
+  listKey TEXT NOT NULL CHECK (listKey IN ('concreteStrength', 'mixerType', 'pourMethod', 'jobType', 'seller', 'shippingFee')),
   value TEXT NOT NULL,
   active INTEGER NOT NULL DEFAULT 1,
   sortOrder INTEGER NOT NULL DEFAULT 0
@@ -95,4 +96,7 @@ INSERT OR IGNORE INTO option_items (id, listKey, value, active, sortOrder) VALUE
   ('opt-sl-1', 'seller', 'คุณสมชาย ใจดี', 1, 0),
   ('opt-sl-2', 'seller', 'คุณวราภรณ์ ศรีสุข', 1, 1),
   ('opt-sl-3', 'seller', 'คุณอนุชา พงษ์พันธ์', 1, 2),
-  ('opt-sl-4', 'seller', 'คุณกัญญา ทองแท้', 1, 3);
+  ('opt-sl-4', 'seller', 'คุณกัญญา ทองแท้', 1, 3),
+  ('opt-sf-1', 'shippingFee', '0', 1, 0),
+  ('opt-sf-2', 'shippingFee', '375', 1, 1),
+  ('opt-sf-3', 'shippingFee', '750', 1, 2);

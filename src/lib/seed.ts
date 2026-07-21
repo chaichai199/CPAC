@@ -1,5 +1,5 @@
 import type { Booking } from '@/types'
-import { MIXER_TYPES, POUR_METHODS, JOB_TYPES, CONCRETE_STRENGTHS, SELLERS } from '@/data/users'
+import { MIXER_TYPES, POUR_METHODS, JOB_TYPES, CONCRETE_STRENGTHS, SELLERS, SHIPPING_FEES } from '@/data/users'
 
 function pad(n: number, len = 2) {
   return String(n).padStart(len, '0')
@@ -33,7 +33,8 @@ export function generateSeedBookings(): Booking[] {
       const volume = [10, 15, 20, 25, 30, 45, 60][Math.floor(Math.random() * 7)]
       const pricePerUnit = 1950 + Math.floor(Math.random() * 8) * 25
       const discount = Math.random() > 0.7 ? 500 : 0
-      const total = volume * pricePerUnit - discount
+      const shippingFee = Number(SHIPPING_FEES[Math.floor(Math.random() * SHIPPING_FEES.length)])
+      const total = Math.max(volume * pricePerUnit - discount, 0) + shippingFee
       const status = dayOffset < 0 ? (Math.random() > 0.15 ? 'completed' : 'cancelled') : STATUSES[Math.floor(Math.random() * STATUSES.length)]
       const dateStr = toDateStr(date)
       const code = `CPAC-${dateStr.replace(/-/g, '')}-${pad(counter)}`
@@ -55,6 +56,7 @@ export function generateSeedBookings(): Booking[] {
         sellerName: SELLERS[Math.floor(Math.random() * SELLERS.length)],
         pricePerUnit,
         discount,
+        shippingFee,
         totalPrice: total,
         status,
         createdAt: new Date(date.getTime() - 86400000).toISOString(),

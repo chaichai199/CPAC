@@ -24,6 +24,7 @@ async function handlePostBookings(request: Request, env: Env): Promise<Response>
     phone: string
     deliveryDate: string
     deliveryTime: string
+    arrivalTime?: string
     concreteStrength: string
     volume: number
     mixerType: string
@@ -54,10 +55,10 @@ async function handlePostBookings(request: Request, env: Env): Promise<Response>
 
   await env.DB.prepare(
     `INSERT INTO bookings (
-      id, code, customerName, phone, deliveryDate, deliveryTime, concreteStrength, volume,
+      id, code, customerName, phone, deliveryDate, deliveryTime, arrivalTime, concreteStrength, volume,
       mixerType, pourMethod, jobType, contactPerson, contactPhone, mapLink, sellerName,
       pricePerUnit, discount, totalPrice, status, createdAt, updatedAt, createdBy
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   )
     .bind(
       id,
@@ -66,6 +67,7 @@ async function handlePostBookings(request: Request, env: Env): Promise<Response>
       input.phone,
       input.deliveryDate,
       input.deliveryTime,
+      input.arrivalTime ?? null,
       input.concreteStrength,
       input.volume,
       input.mixerType,

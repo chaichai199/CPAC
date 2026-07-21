@@ -40,6 +40,7 @@ function BookingCard({ booking }: { booking: Booking }) {
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 md:grid-cols-4">
         <DetailField label="ชื่อลูกค้า" value={booking.customerName} />
         <DetailField label="ปริมาณคอนกรีต" value={`${booking.volume} คิว (ลบ.ม.)`} />
+        {booking.arrivalTime && <DetailField label="เวลาถึงหน้างาน" value={`${booking.arrivalTime} น.`} />}
         <DetailField label="กำลังอัดคอนกรีต" value={booking.concreteStrength} />
         <DetailField label="ชนิดรถผสม" value={booking.mixerType} />
         <DetailField label="ลักษณะการเท" value={booking.pourMethod} />

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   phone TEXT NOT NULL,
   deliveryDate TEXT NOT NULL,
   deliveryTime TEXT NOT NULL,
+  arrivalTime TEXT,
   concreteStrength TEXT NOT NULL,
   volume REAL NOT NULL,
   mixerType TEXT NOT NULL,

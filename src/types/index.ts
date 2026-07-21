@@ -41,6 +41,7 @@ export interface Booking {
   phone: string
   deliveryDate: string // YYYY-MM-DD
   deliveryTime: string // HH:mm
+  arrivalTime?: string // HH:mm, optional — estimated arrival time on site
   concreteStrength: string // e.g. "240 ksc"
   volume: number // คิว / ลบ.ม.
   mixerType: string

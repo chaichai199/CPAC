@@ -10,6 +10,7 @@ interface FormState {
   phone: string
   deliveryDate: string
   deliveryTime: string
+  arrivalTime: string
   concreteStrength: string
   volume: string
   mixerType: string
@@ -28,6 +29,7 @@ const initialState: FormState = {
   phone: '',
   deliveryDate: todayStr(),
   deliveryTime: '08:00',
+  arrivalTime: '',
   concreteStrength: CONCRETE_STRENGTHS[2],
   volume: '',
   mixerType: MIXER_TYPES[0],
@@ -77,6 +79,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
       phone: form.phone.trim(),
       deliveryDate: form.deliveryDate,
       deliveryTime: form.deliveryTime,
+      arrivalTime: form.arrivalTime || undefined,
       concreteStrength: form.concreteStrength,
       volume,
       mixerType: form.mixerType,
@@ -156,6 +159,15 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
                   value={form.deliveryTime}
                   onChange={(e) => update('deliveryTime', e.target.value)}
                   required
+                />
+              </div>
+              <div>
+                <label className="field-label">เวลาถึงหน้างาน (ไม่บังคับ)</label>
+                <input
+                  type="time"
+                  className="input-field font-mono"
+                  value={form.arrivalTime}
+                  onChange={(e) => update('arrivalTime', e.target.value)}
                 />
               </div>
             </div>

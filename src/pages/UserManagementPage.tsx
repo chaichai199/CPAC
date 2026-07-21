@@ -28,10 +28,11 @@ export function UserManagementPage() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!currentUser) return
     setDeleting(true)
     setError(null)
     try {
-      await dataStore.deleteUser(id)
+      await dataStore.deleteUser(id, currentUser)
       setConfirmDeleteId(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถลบผู้ใช้งานได้')

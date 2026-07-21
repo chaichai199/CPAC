@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { dataStore } from '@/lib/db'
+import { useAuth } from '@/context/AuthContext'
 import type { AppUser, UserRole } from '@/types'
 
 interface UserModalProps {
@@ -9,6 +10,7 @@ interface UserModalProps {
 }
 
 export function UserModal({ editingUser, onClose }: UserModalProps) {
+  const { user: currentUser } = useAuth()
   const isEdit = Boolean(editingUser)
   const [username, setUsername] = useState(editingUser?.username ?? '')
   const [password, setPassword] = useState('')
@@ -30,22 +32,31 @@ export function UserModal({ editingUser, onClose }: UserModalProps) {
       return
     }
 
+    if (!currentUser) return
+
     setSubmitting(true)
     try {
       if (isEdit && editingUser) {
-        await dataStore.updateUser(editingUser.id, {
-          username: username.trim(),
-          displayName: displayName.trim(),
-          role,
-          ...(password.trim() ? { password: password.trim() } : {}),
-        })
+        await dataStore.updateUser(
+          editingUser.id,
+          {
+            username: username.trim(),
+            displayName: displayName.trim(),
+            role,
+            ...(password.trim() ? { password: password.trim() } : {}),
+          },
+          currentUser,
+        )
       } else {
-        await dataStore.addUser({
-          username: username.trim(),
-          password: password.trim(),
-          displayName: displayName.trim(),
-          role,
-        })
+        await dataStore.addUser(
+          {
+            username: username.trim(),
+            password: password.trim(),
+            displayName: displayName.trim(),
+            role,
+          },
+          currentUser,
+        )
       }
       onClose()
     } catch (err) {

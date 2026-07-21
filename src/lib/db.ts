@@ -403,7 +403,9 @@ class DataStore {
 
   // ---------- user management ----------
 
-  async addUser(input: NewUserInput): Promise<AppUser> {
+  async addUser(input: NewUserInput, actor: AppUser): Promise<AppUser> {
+    const roleLabel = (r: string) => (r === 'admin' ? 'แอดมิน' : 'เจ้าหน้าที่')
+
     if (this.mode === 'cloudflare') {
       const res = await fetch(API_USERS, {
         method: 'POST',
@@ -415,6 +417,12 @@ class DataStore {
       }
       const created: AppUser = await res.json()
       await this.refreshUsersFromCloudflare()
+      void this.logActivity({
+        userName: actor.displayName,
+        userRole: actor.role,
+        action: 'เพิ่มผู้ใช้งาน',
+        detail: `${actor.displayName} เพิ่มผู้ใช้งานใหม่ ${created.displayName} (@${created.username}) สิทธิ์ ${roleLabel(created.role)}`,
+      })
       return created
     }
 
@@ -428,10 +436,18 @@ class DataStore {
     this.persistUsers()
     this.userListeners.forEach((cb) => cb(this.cachedUsers))
     this.channel?.postMessage({ type: 'users-updated', users: this.cachedUsers })
+    await this.addLocalActivityLog({
+      userName: actor.displayName,
+      userRole: actor.role,
+      action: 'เพิ่มผู้ใช้งาน',
+      detail: `${actor.displayName} เพิ่มผู้ใช้งานใหม่ ${created.displayName} (@${created.username}) สิทธิ์ ${roleLabel(created.role)}`,
+    })
     return created
   }
 
-  async updateUser(id: string, patch: UserPatch): Promise<AppUser> {
+  async updateUser(id: string, patch: UserPatch, actor: AppUser): Promise<AppUser> {
+    const roleLabel = (r: string) => (r === 'admin' ? 'แอดมิน' : 'เจ้าหน้าที่')
+
     if (this.mode === 'cloudflare') {
       const res = await fetch(`${API_USERS}/${id}`, {
         method: 'PATCH',
@@ -449,6 +465,12 @@ class DataStore {
       }
       const updated: AppUser = await res.json()
       await this.refreshUsersFromCloudflare()
+      void this.logActivity({
+        userName: actor.displayName,
+        userRole: actor.role,
+        action: 'แก้ไขผู้ใช้งาน',
+        detail: `${actor.displayName} แก้ไขข้อมูลผู้ใช้งาน ${updated.displayName} (@${updated.username}) สิทธิ์ ${roleLabel(updated.role)}`,
+      })
       return updated
     }
 
@@ -479,16 +501,33 @@ class DataStore {
     this.persistUsers()
     this.userListeners.forEach((cb) => cb(this.cachedUsers))
     this.channel?.postMessage({ type: 'users-updated', users: this.cachedUsers })
+    await this.addLocalActivityLog({
+      userName: actor.displayName,
+      userRole: actor.role,
+      action: 'แก้ไขผู้ใช้งาน',
+      detail: `${actor.displayName} แก้ไขข้อมูลผู้ใช้งาน ${updated.displayName} (@${updated.username}) สิทธิ์ ${roleLabel(updated.role)}`,
+    })
     return updated
   }
 
-  async deleteUser(id: string): Promise<void> {
+  async deleteUser(id: string, actor: AppUser): Promise<void> {
+    const roleLabel = (r: string) => (r === 'admin' ? 'แอดมิน' : 'เจ้าหน้าที่')
+    const target = this.cachedUsers.find((u) => u.id === id)
+
     if (this.mode === 'cloudflare') {
       const res = await fetch(`${API_USERS}/${id}`, { method: 'DELETE' })
       if (!res.ok) {
         throw new Error(res.status === 400 ? 'ไม่สามารถลบแอดมินคนสุดท้ายได้' : `Failed to delete user (HTTP ${res.status})`)
       }
       await this.refreshUsersFromCloudflare()
+      if (target) {
+        void this.logActivity({
+          userName: actor.displayName,
+          userRole: actor.role,
+          action: 'ลบผู้ใช้งาน',
+          detail: `${actor.displayName} ลบผู้ใช้งาน ${target.displayName} (@${target.username}) สิทธิ์ ${roleLabel(target.role)}`,
+        })
+      }
       return
     }
 
@@ -505,6 +544,12 @@ class DataStore {
     this.persistUsers()
     this.userListeners.forEach((cb) => cb(this.cachedUsers))
     this.channel?.postMessage({ type: 'users-updated', users: this.cachedUsers })
+    await this.addLocalActivityLog({
+      userName: actor.displayName,
+      userRole: actor.role,
+      action: 'ลบผู้ใช้งาน',
+      detail: `${actor.displayName} ลบผู้ใช้งาน ${existing.displayName} (@${existing.username}) สิทธิ์ ${roleLabel(existing.role)}`,
+    })
   }
 }
 

@@ -42,9 +42,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
+    if (user) {
+      void dataStore.logActivity({
+        userName: user.displayName,
+        userRole: user.role,
+        action: 'ออกจากระบบ',
+        detail: `${user.displayName} ออกจากระบบ`,
+      })
+    }
     sessionStorage.removeItem(SESSION_KEY)
     setUser(null)
-  }, [])
+  }, [user])
 
   const value = useMemo(() => ({ user, login, logout }), [user, login, logout])
 

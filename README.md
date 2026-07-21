@@ -2,7 +2,7 @@
 
 ระบบรับจองและบริหารจัดการคิวส่งคอนกรีตผสมเสร็จ (Ready-Mix Concrete Booking) สำหรับ BURAPACONCRETE
 สร้างด้วย React (Vite) + TypeScript + Tailwind CSS ในสไตล์ Warm-Minimalist พร้อมระบบฐานข้อมูลบน
-Cloudflare D1 ผ่าน Pages Functions (โพลข้อมูลทุก 4 วินาทีเพื่อจำลอง Real-time) และรองรับ LocalStorage
+Cloudflare D1 ผ่าน Cloudflare Worker (โพลข้อมูลทุก 4 วินาทีเพื่อจำลอง Real-time) และรองรับ LocalStorage
 Fallback อัตโนมัติเมื่อไม่ได้เชื่อมต่อคลาวด์ (เช่นตอน `npm run dev` บนเครื่อง)
 
 ## Getting started
@@ -21,9 +21,9 @@ npm run dev
 
 ## Cloudflare D1 setup
 
-ระบบทำงานได้ทันทีในโหมด LocalStorage โดยไม่ต้องตั้งค่าใดๆ (ใช้ตอน `npm run dev` เพราะไม่มี
-Pages Functions ให้เรียก) เมื่อ deploy ขึ้น Cloudflare Pages พร้อมผูก D1 database แล้ว แอปจะตรวจจับ
-`/api/bookings` ได้อัตโนมัติและสลับไปโหมด Cloudflare D1 ทันที (แสดงสถานะที่ Mini Utility Bar)
+ระบบทำงานได้ทันทีในโหมด LocalStorage โดยไม่ต้องตั้งค่าใดๆ (ใช้ตอน `npm run dev` เพราะไม่มี Worker
+ให้เรียก) เมื่อ deploy ขึ้น Cloudflare Workers พร้อมผูก D1 database แล้ว แอปจะตรวจจับ `/api/bookings`
+ได้อัตโนมัติและสลับไปโหมด Cloudflare D1 ทันที (แสดงสถานะที่ Mini Utility Bar)
 
 ขั้นตอนตั้งค่า D1 (ทำครั้งเดียว):
 
@@ -36,11 +36,13 @@ npx wrangler d1 create cpac_booking_db
 npx wrangler d1 execute cpac_booking_db --remote --file=./schema.sql
 ```
 
-จากนั้น deploy โปรเจกต์ (ผ่าน Git integration ของ Cloudflare Pages ที่ผูกไว้แล้ว หรือ
-`npx wrangler pages deploy dist`) — เมื่อมี `wrangler.toml` อยู่ใน repo, Cloudflare Pages จะอ่าน
-D1 binding จากไฟล์นี้โดยอัตโนมัติ
+Deploy ด้วยตนเองได้ผ่าน `npm run deploy` (รัน `vite build` แล้วตามด้วย `wrangler deploy`) หรือให้
+Cloudflare Workers Builds (Git integration) จัดการให้อัตโนมัติทุกครั้งที่ push — ตรวจสอบใน Settings
+ของโปรเจกต์ว่า Build command ตั้งเป็น `npm run build` และมีการรัน `wrangler deploy` ต่อท้ายด้วย
+(Cloudflare จะ deploy ให้อัตโนมัติเมื่อเจอ `wrangler.toml` ที่มี `main` ชี้ไปยัง Worker entry point)
 
-Backend API (Cloudflare Pages Functions) อยู่ที่ `functions/api/`:
+Backend เป็น Cloudflare Worker ตัวเดียวที่ `worker/index.ts` ให้บริการทั้งไฟล์ static (ผ่าน binding
+`ASSETS`) และ API:
 - `GET /api/bookings`, `POST /api/bookings`
 - `PATCH /api/bookings/:id/status`
 - `GET /api/activity`
@@ -56,4 +58,4 @@ Backend API (Cloudflare Pages Functions) อยู่ที่ `functions/api/`:
 
 ## Tech stack
 
-React 19 · TypeScript · Vite · Tailwind CSS · Cloudflare Pages Functions · Cloudflare D1 · Recharts · React Router · date-fns
+React 19 · TypeScript · Vite · Tailwind CSS · Cloudflare Workers · Cloudflare D1 · Recharts · React Router · date-fns

@@ -25,7 +25,7 @@ const API_OPTIONS = '/api/options'
 
 export type NewUserInput = Omit<AppUser, 'id'>
 export type UserPatch = Partial<Omit<AppUser, 'id'>>
-export type OptionPatch = Partial<Pick<OptionItem, 'value' | 'active'>>
+export type OptionPatch = Partial<Pick<OptionItem, 'value' | 'active' | 'sortOrder'>>
 
 function buildDefaultOptions(): OptionItem[] {
   const build = (listKey: OptionListKey, values: string[]): OptionItem[] =>
@@ -726,6 +726,48 @@ class DataStore {
         : `${actor.displayName} แก้ไข${label}เป็น "${updated.value}"`,
     })
     return updated
+  }
+
+  async moveOption(id: string, direction: 'up' | 'down', actor: AppUser): Promise<void> {
+    const current = this.cachedOptions.find((o) => o.id === id)
+    if (!current) throw new Error('ไม่พบตัวเลือกนี้')
+
+    const sameList = this.cachedOptions.filter((o) => o.listKey === current.listKey).sort((a, b) => a.sortOrder - b.sortOrder)
+    const idx = sameList.findIndex((o) => o.id === id)
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= sameList.length) return
+    const neighbor = sameList[swapIdx]
+
+    if (this.mode === 'cloudflare') {
+      const patchOne = (optionId: string, sortOrder: number) =>
+        fetch(`${API_OPTIONS}/${optionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sortOrder }),
+        })
+      const [resA, resB] = await Promise.all([patchOne(current.id, neighbor.sortOrder), patchOne(neighbor.id, current.sortOrder)])
+      if (!resA.ok || !resB.ok) {
+        throw new Error('Failed to reorder options')
+      }
+      await this.refreshOptionsFromCloudflare()
+    } else {
+      this.cachedOptions = this.cachedOptions.map((o) => {
+        if (o.id === current.id) return { ...o, sortOrder: neighbor.sortOrder }
+        if (o.id === neighbor.id) return { ...o, sortOrder: current.sortOrder }
+        return o
+      })
+      this.persistOptions()
+      this.optionListeners.forEach((cb) => cb(this.cachedOptions))
+      this.channel?.postMessage({ type: 'options-updated', options: this.cachedOptions })
+    }
+
+    const label = OPTION_LIST_LABELS[current.listKey]
+    await this.logActivity({
+      userName: actor.displayName,
+      userRole: actor.role,
+      action: 'จัดลำดับตัวเลือก',
+      detail: `${actor.displayName} ปรับลำดับ${label}: สลับ "${current.value}" กับ "${neighbor.value}"`,
+    })
   }
 }
 

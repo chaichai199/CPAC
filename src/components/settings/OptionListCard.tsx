@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Plus } from 'lucide-react'
+import { Pencil, Plus, ChevronUp, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 import { dataStore } from '@/lib/db'
 import { useAuth } from '@/context/AuthContext'
@@ -18,6 +18,19 @@ export function OptionListCard({ listKey, label, items }: OptionListCardProps) {
   const [editValue, setEditValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const move = async (item: OptionItem, direction: 'up' | 'down') => {
+    if (!currentUser) return
+    setBusy(true)
+    setError(null)
+    try {
+      await dataStore.moveOption(item.id, direction, currentUser)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const handleAdd = async () => {
     if (!newValue.trim() || !currentUser) return
@@ -73,7 +86,7 @@ export function OptionListCard({ listKey, label, items }: OptionListCardProps) {
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
       <div className="space-y-2">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <div
             key={item.id}
             className={clsx(
@@ -101,7 +114,27 @@ export function OptionListCard({ listKey, label, items }: OptionListCardProps) {
               </>
             ) : (
               <>
-                <span className={clsx('truncate text-sm', item.active ? 'text-stone-800' : 'text-stone-400 line-through')}>
+                <div className="flex min-w-0 shrink-0 flex-col">
+                  <button
+                    onClick={() => move(item, 'up')}
+                    disabled={busy || index === 0}
+                    className="btn-ghost !px-1 !py-0.5 disabled:opacity-30"
+                    title="เลื่อนขึ้น"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => move(item, 'down')}
+                    disabled={busy || index === items.length - 1}
+                    className="btn-ghost !px-1 !py-0.5 disabled:opacity-30"
+                    title="เลื่อนลง"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <span
+                  className={clsx('flex-1 truncate text-sm', item.active ? 'text-stone-800' : 'text-stone-400 line-through')}
+                >
                   {item.value}
                 </span>
                 <div className="flex shrink-0 items-center gap-1">

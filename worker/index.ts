@@ -305,7 +305,7 @@ async function handlePostOptions(request: Request, env: Env): Promise<Response> 
 }
 
 async function handlePatchOption(id: string, request: Request, env: Env): Promise<Response> {
-  const body = (await request.json()) as Partial<{ value: string; active: boolean }>
+  const body = (await request.json()) as Partial<{ value: string; active: boolean; sortOrder: number }>
 
   const existing = await env.DB.prepare('SELECT * FROM option_items WHERE id = ?').bind(id).first<{
     listKey: string
@@ -319,12 +319,13 @@ async function handlePatchOption(id: string, request: Request, env: Env): Promis
 
   const nextValue = body.value?.trim() || existing.value
   const nextActive = body.active === undefined ? Boolean(existing.active) : body.active
+  const nextSortOrder = body.sortOrder === undefined ? existing.sortOrder : body.sortOrder
 
-  await env.DB.prepare('UPDATE option_items SET value = ?, active = ? WHERE id = ?')
-    .bind(nextValue, nextActive ? 1 : 0, id)
+  await env.DB.prepare('UPDATE option_items SET value = ?, active = ?, sortOrder = ? WHERE id = ?')
+    .bind(nextValue, nextActive ? 1 : 0, nextSortOrder, id)
     .run()
 
-  return Response.json({ id, listKey: existing.listKey, value: nextValue, active: nextActive, sortOrder: existing.sortOrder })
+  return Response.json({ id, listKey: existing.listKey, value: nextValue, active: nextActive, sortOrder: nextSortOrder })
 }
 
 export default {

@@ -2,6 +2,7 @@ import type {
   ActivityLogEntry,
   AppUser,
   Booking,
+  BookingEditInput,
   BookingStatus,
   ConnectionMode,
   NewBookingInput,
@@ -445,6 +446,43 @@ class DataStore {
       userRole: user.role,
       action: 'เปลี่ยนสถานะ',
       detail: `เปลี่ยนสถานะใบสั่งจอง ${existing.code} จาก "${prevStatus}" เป็น "${status}"`,
+      bookingCode: existing.code,
+    })
+  }
+
+  async updateBooking(bookingId: string, input: BookingEditInput, user: AppUser): Promise<void> {
+    if (this.mode === 'cloudflare') {
+      this.setStatus({ syncing: true })
+      const res = await fetch(`${API_BOOKINGS}/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...input, user: { displayName: user.displayName, role: user.role } }),
+      })
+      if (!res.ok) {
+        this.setStatus({ syncing: false, error: `Failed to update booking (HTTP ${res.status})` })
+        throw new Error(`Failed to update booking (HTTP ${res.status})`)
+      }
+      await this.refreshBookingsFromCloudflare(true)
+      await this.refreshActivityFromCloudflare()
+      this.setStatus({ syncing: false, lastSyncAt: new Date().toISOString(), error: null })
+      return
+    }
+
+    const existing = this.cachedBookings.find((b) => b.id === bookingId)
+    if (!existing) throw new Error('ไม่พบใบสั่งจองนี้')
+    const updated: Booking = { ...existing, ...input, updatedAt: new Date().toISOString() }
+
+    this.cachedBookings = this.cachedBookings.map((b) => (b.id === bookingId ? updated : b))
+    this.persistBookings()
+    this.bookingListeners.forEach((cb) => cb(this.cachedBookings))
+    this.channel?.postMessage({ type: 'bookings-updated', bookings: this.cachedBookings })
+    this.setStatus({ lastSyncAt: new Date().toISOString() })
+
+    await this.addLocalActivityLog({
+      userName: user.displayName,
+      userRole: user.role,
+      action: 'แก้ไขใบสั่งจอง',
+      detail: `แก้ไขใบสั่งจอง ${existing.code} (ลูกค้า: ${input.customerName})`,
       bookingCode: existing.code,
     })
   }

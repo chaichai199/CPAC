@@ -144,6 +144,90 @@ async function handlePatchStatus(id: string, request: Request, env: Env): Promis
   return Response.json(updated)
 }
 
+async function handlePatchBooking(id: string, request: Request, env: Env): Promise<Response> {
+  const body = await request.json()
+  const { user, ...input } = body as {
+    user: { displayName: string; role: string }
+    customerName: string
+    phone: string
+    deliveryDate: string
+    deliveryTime: string
+    arrivalTime?: string
+    concreteStrength: string
+    volume: number
+    mixerType: string
+    pourMethod: string
+    jobType: string
+    contactPerson: string
+    contactPhone: string
+    mapLink: string
+    sellerName: string
+    pricePerUnit: number
+    discount: number
+    shippingFee: number
+    totalPrice: number
+  }
+
+  if (!input.customerName || !input.phone || !input.deliveryDate || !(input.volume > 0)) {
+    return new Response('Invalid booking payload', { status: 400 })
+  }
+
+  const existing = await env.DB.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first<{ code: string }>()
+  if (!existing) {
+    return new Response('Booking not found', { status: 404 })
+  }
+
+  const now = new Date().toISOString()
+  await env.DB.prepare(
+    `UPDATE bookings SET
+      customerName=?, phone=?, deliveryDate=?, deliveryTime=?, arrivalTime=?, concreteStrength=?, volume=?,
+      mixerType=?, pourMethod=?, jobType=?, contactPerson=?, contactPhone=?, mapLink=?, sellerName=?,
+      pricePerUnit=?, discount=?, shippingFee=?, totalPrice=?, updatedAt=?
+     WHERE id=?`,
+  )
+    .bind(
+      input.customerName,
+      input.phone,
+      input.deliveryDate,
+      input.deliveryTime,
+      input.arrivalTime ?? null,
+      input.concreteStrength,
+      input.volume,
+      input.mixerType,
+      input.pourMethod,
+      input.jobType,
+      input.contactPerson,
+      input.contactPhone,
+      input.mapLink,
+      input.sellerName,
+      input.pricePerUnit,
+      input.discount,
+      input.shippingFee ?? 0,
+      input.totalPrice,
+      now,
+      id,
+    )
+    .run()
+
+  await env.DB.prepare(
+    `INSERT INTO activity_log (id, timestamp, userName, userRole, action, detail, bookingCode)
+     VALUES (?,?,?,?,?,?,?)`,
+  )
+    .bind(
+      crypto.randomUUID(),
+      now,
+      user?.displayName ?? 'ไม่ทราบผู้ใช้',
+      user?.role ?? 'staff',
+      'แก้ไขใบสั่งจอง',
+      `แก้ไขใบสั่งจอง ${existing.code} (ลูกค้า: ${input.customerName})`,
+      existing.code,
+    )
+    .run()
+
+  const updated = await env.DB.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first()
+  return Response.json(updated)
+}
+
 async function handleGetActivity(env: Env): Promise<Response> {
   const { results } = await env.DB.prepare('SELECT * FROM activity_log ORDER BY timestamp DESC LIMIT 500').all()
   return Response.json(results)
@@ -341,6 +425,10 @@ export default {
     const statusMatch = url.pathname.match(/^\/api\/bookings\/([^/]+)\/status$/)
     if (statusMatch && request.method === 'PATCH') {
       return handlePatchStatus(statusMatch[1], request, env)
+    }
+    const bookingMatch = url.pathname.match(/^\/api\/bookings\/([^/]+)$/)
+    if (bookingMatch && request.method === 'PATCH') {
+      return handlePatchBooking(bookingMatch[1], request, env)
     }
     if (url.pathname === '/api/activity' && request.method === 'GET') {
       return handleGetActivity(env)

@@ -65,6 +65,8 @@ export type NewBookingInput = Omit<Booking, 'id' | 'code' | 'createdAt' | 'updat
   status?: BookingStatus
 }
 
+export type BookingEditInput = Omit<NewBookingInput, 'status' | 'createdBy'>
+
 export interface ActivityLogEntry {
   id: string
   timestamp: string

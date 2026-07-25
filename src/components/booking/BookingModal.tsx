@@ -52,7 +52,33 @@ function defaultSellerName(currentUser: AppUser | null, staffUsers: AppUser[]): 
   return staffUsers[0]?.displayName ?? ''
 }
 
-function buildInitialState(options: OptionItem[], currentUser: AppUser | null, staffUsers: AppUser[]): FormState {
+function buildInitialState(
+  options: OptionItem[],
+  currentUser: AppUser | null,
+  staffUsers: AppUser[],
+  booking?: Booking,
+): FormState {
+  if (booking) {
+    return {
+      customerName: booking.customerName,
+      phone: booking.phone,
+      deliveryDate: booking.deliveryDate,
+      deliveryTime: booking.deliveryTime,
+      arrivalTime: booking.arrivalTime ?? '',
+      concreteStrength: booking.concreteStrength,
+      volume: String(booking.volume),
+      mixerType: booking.mixerType,
+      pourMethod: booking.pourMethod,
+      jobType: booking.jobType,
+      contactPerson: booking.contactPerson,
+      contactPhone: booking.contactPhone,
+      mapLink: booking.mapLink,
+      sellerName: booking.sellerName,
+      pricePerUnit: String(booking.pricePerUnit),
+      discount: String(booking.discount),
+      shippingFee: String(booking.shippingFee),
+    }
+  }
   return {
     customerName: '',
     phone: '',
@@ -74,14 +100,15 @@ function buildInitialState(options: OptionItem[], currentUser: AppUser | null, s
   }
 }
 
-export function BookingModal({ onClose }: { onClose: () => void }) {
+export function BookingModal({ booking, onClose }: { booking?: Booking; onClose: () => void }) {
+  const isEdit = Boolean(booking)
   const { user } = useAuth()
-  const { addBooking, bookings } = useData()
+  const { addBooking, updateBooking, bookings } = useData()
   const [options, setOptions] = useState<OptionItem[]>(() => dataStore.getOptionsSnapshot())
   const [users, setUsers] = useState<AppUser[]>(() => dataStore.getUsersSnapshot())
   const staffUsers = useMemo(() => users.filter((u) => u.role === 'staff'), [users])
   const [form, setForm] = useState<FormState>(() =>
-    buildInitialState(dataStore.getOptionsSnapshot(), user, dataStore.getUsersSnapshot().filter((u) => u.role === 'staff')),
+    buildInitialState(dataStore.getOptionsSnapshot(), user, dataStore.getUsersSnapshot().filter((u) => u.role === 'staff'), booking),
   )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -134,8 +161,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
     }
     if (!user) return
 
-    setSubmitting(true)
-    await addBooking({
+    const payload = {
       customerName: form.customerName.trim(),
       phone: form.phone.trim(),
       deliveryDate: form.deliveryDate,
@@ -154,8 +180,14 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
       discount,
       shippingFee,
       totalPrice,
-      createdBy: user.displayName,
-    })
+    }
+
+    setSubmitting(true)
+    if (isEdit && booking) {
+      await updateBooking(booking.id, payload)
+    } else {
+      await addBooking({ ...payload, createdBy: user.displayName })
+    }
     setSubmitting(false)
     onClose()
   }
@@ -171,8 +203,12 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
       >
         <div className="flex items-center justify-between border-b border-sand-200 bg-white/80 px-5 py-4 sm:px-7">
           <div>
-            <h3 className="font-display text-lg font-bold text-stone-900 sm:text-xl">เพิ่มใบสั่งจองคอนกรีต</h3>
-            <p className="text-sm text-stone-500">คีย์ข้อมูลการสั่งจองใหม่เข้าสู่ระบบ</p>
+            <h3 className="font-display text-lg font-bold text-stone-900 sm:text-xl">
+              {isEdit ? 'แก้ไขใบสั่งจองคอนกรีต' : 'เพิ่มใบสั่งจองคอนกรีต'}
+            </h3>
+            <p className="text-sm text-stone-500">
+              {isEdit ? `แก้ไขข้อมูลใบสั่งจอง ${booking?.code}` : 'คีย์ข้อมูลการสั่งจองใหม่เข้าสู่ระบบ'}
+            </p>
           </div>
           <button onClick={onClose} className="rounded-full p-2 text-stone-500 hover:bg-stone-800/5">
             <X className="h-5 w-5" />
@@ -434,7 +470,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
               ยกเลิก
             </button>
             <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? 'กำลังบันทึก...' : 'บันทึกใบสั่งจอง'}
+              {submitting ? 'กำลังบันทึก...' : isEdit ? 'บันทึกการแก้ไข' : 'บันทึกใบสั่งจอง'}
             </button>
           </div>
         </form>

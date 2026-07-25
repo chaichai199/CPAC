@@ -25,7 +25,8 @@ npm run dev
 
 - **Authentication** พร้อม 2 สิทธิ์ผู้ใช้งาน (Admin / Staff) — Staff เห็นเฉพาะใบสั่งจองที่ตนเองเป็น
   ผู้ขาย (Seller) เท่านั้น ส่วน Admin เห็นข้อมูลทั้งหมดในระบบ
-- **ปฏิทินคิวจัดส่งรายเดือน** แบบ Interactive พร้อม Modal แสดงรายละเอียดงานแต่ละรายการ
+- **ปฏิทินคิวจัดส่งรายเดือน** แบบ Interactive พร้อม Modal แสดงรายละเอียดงานแต่ละรายการ — กดปุ่ม
+  "แก้ไข" บนแต่ละใบสั่งจองเพื่อแก้ไขข้อมูลได้โดยตรง (Staff แก้ไขได้เฉพาะงานของตนเอง, Admin แก้ไขได้ทุกงาน)
 - **ฟอร์มคีย์ใบสั่งจองคอนกรีต** พร้อมคำนวณราคาอัตโนมัติ:
   - ข้อมูลทั่วไป — ชื่อลูกค้า, เบอร์โทร, วันที่/เวลาจัดส่ง, เวลาถึงหน้างาน (ไม่บังคับ)
   - รายละเอียดคอนกรีต — กำลังอัด, ปริมาณ, ชนิดรถผสม, ลักษณะการเท, ชนิดงาน
@@ -60,7 +61,7 @@ Backend เป็น Cloudflare Worker ตัวเดียวที่ `worker
 `ASSETS`) และ API:
 
 - `GET /api/bookings`, `POST /api/bookings`
-- `PATCH /api/bookings/:id/status`
+- `PATCH /api/bookings/:id` (full edit), `PATCH /api/bookings/:id/status`
 - `GET /api/activity`, `POST /api/activity`
 - `GET /api/users`, `POST /api/users`, `PATCH /api/users/:id`, `DELETE /api/users/:id`
 - `GET /api/options`, `POST /api/options`, `PATCH /api/options/:id`

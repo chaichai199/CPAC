@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react'
-import { MapPin, Phone, User, X } from 'lucide-react'
+import { MapPin, Pencil, Phone, User, X } from 'lucide-react'
 import type { Booking, BookingStatus } from '@/types'
 import { BOOKING_STATUSES, STATUS_LABEL_TH } from '@/types'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
+import { useBookingModal } from '@/context/BookingModalContext'
 import { formatCurrency, formatPhone, formatThaiDateFull } from '@/utils/format'
 import { StatusBadge } from '@/components/calendar/StatusBadge'
 
@@ -19,7 +20,10 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
 function BookingCard({ booking }: { booking: Booking }) {
   const { user } = useAuth()
   const { updateBookingStatus } = useData()
+  const { openEditBooking } = useBookingModal()
   const [updating, setUpdating] = useState(false)
+
+  const canEdit = user?.role === 'admin' || booking.sellerName === user?.displayName
 
   const handleStatusChange = async (status: BookingStatus) => {
     setUpdating(true)
@@ -34,7 +38,19 @@ function BookingCard({ booking }: { booking: Booking }) {
           <span className="font-mono text-sm font-bold text-sand-700">{booking.code}</span>
           <StatusBadge status={booking.status} />
         </div>
-        <span className="font-mono text-sm font-semibold text-stone-700">เวลา {booking.deliveryTime} น.</span>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-sm font-semibold text-stone-700">เวลา {booking.deliveryTime} น.</span>
+          {canEdit && (
+            <button
+              onClick={() => openEditBooking(booking)}
+              className="btn-ghost !px-2.5 !py-1.5 text-xs"
+              title="แก้ไขใบสั่งจอง"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              แก้ไข
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 md:grid-cols-4">

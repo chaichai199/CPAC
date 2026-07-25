@@ -4,7 +4,7 @@
 สร้างด้วย React (Vite) + TypeScript + Tailwind CSS ในสไตล์ Warm-Minimalist
 
 แอปเก็บข้อมูลบน Cloudflare D1 ผ่าน Cloudflare Worker ตัวเดียว (ให้บริการทั้งไฟล์ static และ API)
-พร้อมโพลข้อมูลใหม่ทุก 15 นาทีเพื่อซิงค์ระหว่างผู้ใช้งาน และมีโหมด LocalStorage Fallback
+พร้อมโพลข้อมูลใหม่ทุก 1 นาทีเพื่อซิงค์ระหว่างผู้ใช้งาน และมีโหมด LocalStorage Fallback
 ให้ทำงานได้ทันทีเมื่อไม่มี Worker ให้เรียก (เช่นตอนรัน `npm run dev` บนเครื่อง)
 
 ## เริ่มต้นใช้งาน

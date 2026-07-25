@@ -3,8 +3,22 @@ import { X, Calculator } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { dataStore } from '@/lib/db'
-import type { AppUser, OptionItem, OptionListKey } from '@/types'
+import type { AppUser, Booking, OptionItem, OptionListKey } from '@/types'
 import { formatCurrency, todayStr } from '@/utils/format'
+
+function suggestionValues(bookings: Booking[], key: keyof Booking, limit = 30): string[] {
+  const seen = new Set<string>()
+  const values: string[] = []
+  for (const b of [...bookings].sort((a, c) => c.createdAt.localeCompare(a.createdAt))) {
+    const raw = b[key]
+    const value = typeof raw === 'string' ? raw.trim() : ''
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    values.push(value)
+    if (values.length >= limit) break
+  }
+  return values
+}
 
 interface FormState {
   customerName: string
@@ -62,7 +76,7 @@ function buildInitialState(options: OptionItem[], currentUser: AppUser | null, s
 
 export function BookingModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth()
-  const { addBooking } = useData()
+  const { addBooking, bookings } = useData()
   const [options, setOptions] = useState<OptionItem[]>(() => dataStore.getOptionsSnapshot())
   const [users, setUsers] = useState<AppUser[]>(() => dataStore.getUsersSnapshot())
   const staffUsers = useMemo(() => users.filter((u) => u.role === 'staff'), [users])
@@ -86,6 +100,12 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
   const pourMethods = useMemo(() => activeValues(options, 'pourMethod'), [options])
   const jobTypes = useMemo(() => activeValues(options, 'jobType'), [options])
   const shippingFees = useMemo(() => activeValues(options, 'shippingFee'), [options])
+
+  const customerNameSuggestions = useMemo(() => suggestionValues(bookings, 'customerName'), [bookings])
+  const phoneSuggestions = useMemo(() => suggestionValues(bookings, 'phone'), [bookings])
+  const contactPersonSuggestions = useMemo(() => suggestionValues(bookings, 'contactPerson'), [bookings])
+  const contactPhoneSuggestions = useMemo(() => suggestionValues(bookings, 'contactPhone'), [bookings])
+  const mapLinkSuggestions = useMemo(() => suggestionValues(bookings, 'mapLink'), [bookings])
 
   const volume = parseFloat(form.volume) || 0
   const pricePerUnit = parseFloat(form.pricePerUnit) || 0
@@ -167,21 +187,33 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
                 <label className="field-label">ชื่อลูกค้า *</label>
                 <input
                   className="input-field"
+                  list="customerName-suggestions"
                   value={form.customerName}
                   onChange={(e) => update('customerName', e.target.value)}
                   placeholder="เช่น บริษัท ไทยพัฒนา จำกัด"
                   required
                 />
+                <datalist id="customerName-suggestions">
+                  {customerNameSuggestions.map((v) => (
+                    <option key={v} value={v} />
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label className="field-label">เบอร์โทรศัพท์ *</label>
                 <input
                   className="input-field font-mono"
+                  list="phone-suggestions"
                   value={form.phone}
                   onChange={(e) => update('phone', e.target.value)}
                   placeholder="08X-XXX-XXXX"
                   required
                 />
+                <datalist id="phone-suggestions">
+                  {phoneSuggestions.map((v) => (
+                    <option key={v} value={v} />
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label className="field-label">วันที่จัดส่ง *</label>
@@ -289,28 +321,46 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
                 <label className="field-label">ผู้ติดต่อหน้างาน</label>
                 <input
                   className="input-field"
+                  list="contactPerson-suggestions"
                   value={form.contactPerson}
                   onChange={(e) => update('contactPerson', e.target.value)}
                   placeholder="ชื่อผู้ติดต่อหน้าไซต์งาน"
                 />
+                <datalist id="contactPerson-suggestions">
+                  {contactPersonSuggestions.map((v) => (
+                    <option key={v} value={v} />
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label className="field-label">เบอร์โทรผู้ติดต่อ</label>
                 <input
                   className="input-field font-mono"
+                  list="contactPhone-suggestions"
                   value={form.contactPhone}
                   onChange={(e) => update('contactPhone', e.target.value)}
                   placeholder="08X-XXX-XXXX"
                 />
+                <datalist id="contactPhone-suggestions">
+                  {contactPhoneSuggestions.map((v) => (
+                    <option key={v} value={v} />
+                  ))}
+                </datalist>
               </div>
               <div className="sm:col-span-2">
                 <label className="field-label">ลิงก์แผนที่หน้างานจัดส่ง</label>
                 <input
                   className="input-field"
+                  list="mapLink-suggestions"
                   value={form.mapLink}
                   onChange={(e) => update('mapLink', e.target.value)}
                   placeholder="https://maps.app.goo.gl/..."
                 />
+                <datalist id="mapLink-suggestions">
+                  {mapLinkSuggestions.map((v) => (
+                    <option key={v} value={v} />
+                  ))}
+                </datalist>
               </div>
             </div>
           </section>

@@ -36,9 +36,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const visibleBookings = useMemo(() => {
+    if (!user || user.role === 'admin') return bookings
+    return bookings.filter((b) => b.sellerName === user.displayName)
+  }, [bookings, user])
+
   const value = useMemo<DataContextValue>(
     () => ({
-      bookings,
+      bookings: visibleBookings,
       activityLog,
       connection,
       addBooking: async (input) => {
@@ -50,7 +55,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         await dataStore.updateBookingStatus(id, status, user)
       },
     }),
-    [bookings, activityLog, connection, user],
+    [visibleBookings, activityLog, connection, user],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

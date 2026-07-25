@@ -1,5 +1,7 @@
 import type { Booking } from '@/types'
-import { MIXER_TYPES, POUR_METHODS, JOB_TYPES, CONCRETE_STRENGTHS, SELLERS, SHIPPING_FEES } from '@/data/users'
+import { MIXER_TYPES, POUR_METHODS, JOB_TYPES, CONCRETE_STRENGTHS, DEMO_USERS, SHIPPING_FEES } from '@/data/users'
+
+const STAFF_SELLERS = DEMO_USERS.filter((u) => u.role === 'staff').map((u) => u.displayName)
 
 function pad(n: number, len = 2) {
   return String(n).padStart(len, '0')
@@ -53,7 +55,7 @@ export function generateSeedBookings(): Booking[] {
         contactPerson: 'คุณหัวหน้างานหน้าไซต์',
         contactPhone: `09${Math.floor(10000000 + Math.random() * 89999999)}`,
         mapLink: 'https://maps.app.goo.gl/example',
-        sellerName: SELLERS[Math.floor(Math.random() * SELLERS.length)],
+        sellerName: STAFF_SELLERS[Math.floor(Math.random() * STAFF_SELLERS.length)],
         pricePerUnit,
         discount,
         shippingFee,

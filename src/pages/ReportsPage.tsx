@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { endOfMonth, endOfWeek, eachDayOfInterval, format, parseISO, startOfMonth, startOfWeek, subDays } from 'date-fns'
 import { CheckCircle2, Coins, Package, Printer, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { dataStore } from '@/lib/db'
 import type { AppUser, Booking } from '@/types'
@@ -20,6 +21,7 @@ const REPORT_TABS: { key: ReportType; label: string }[] = [
 ]
 
 export function ReportsPage() {
+  const { user } = useAuth()
   const { bookings } = useData()
   const [reportType, setReportType] = useState<ReportType>('daily')
   const [anchorDate, setAnchorDate] = useState(todayStr())
@@ -120,7 +122,8 @@ export function ReportsPage() {
       <div className="hidden print:block mb-4">
         <h1 className="font-display text-2xl font-bold text-stone-900">BURAPACONCRETE CPAC Booking — รายงานยอดขาย</h1>
         <p className="text-sm text-stone-500">
-          ช่วงเวลา: {rangeLabel} · ผู้ขาย: {sellerFilter === 'all' ? 'ทั้งหมด' : sellerFilter} · พิมพ์เมื่อ{' '}
+          ช่วงเวลา: {rangeLabel}
+          {user?.role === 'admin' && ` · ผู้ขาย: ${sellerFilter === 'all' ? 'ทั้งหมด' : sellerFilter}`} · พิมพ์เมื่อ{' '}
           {new Date().toLocaleString('th-TH')}
         </p>
       </div>
@@ -153,17 +156,19 @@ export function ReportsPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-stone-500">ผู้ขาย</label>
-          <select className="input-field !w-auto" value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)}>
-            <option value="all">ทั้งหมด (All Sellers)</option>
-            {sellerOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
+        {user?.role === 'admin' && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wide text-stone-500">ผู้ขาย</label>
+            <select className="input-field !w-auto" value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)}>
+              <option value="all">ทั้งหมด (All Sellers)</option>
+              {sellerOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <span className="ml-auto text-sm text-stone-500">{rangeLabel}</span>
       </div>

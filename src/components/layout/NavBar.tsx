@@ -33,12 +33,10 @@ export function NavBar({ onNewBooking }: { onNewBooking: () => void }) {
             <CalendarDays className="h-4 w-4" />
             ปฏิทินคิวส่ง
           </NavLink>
-          {user.role === 'admin' && (
-            <NavLink to="/reports" className={navLinkClass}>
-              <TrendingUp className="h-4 w-4" />
-              รายงานยอดขาย
-            </NavLink>
-          )}
+          <NavLink to="/reports" className={navLinkClass}>
+            <TrendingUp className="h-4 w-4" />
+            รายงานยอดขาย
+          </NavLink>
           {user.role === 'admin' && (
             <NavLink to="/history" className={navLinkClass}>
               <History className="h-4 w-4" />
@@ -85,12 +83,10 @@ export function NavBar({ onNewBooking }: { onNewBooking: () => void }) {
           <CalendarDays className="h-4 w-4" />
           ปฏิทิน
         </NavLink>
-        {user.role === 'admin' && (
-          <NavLink to="/reports" className={navLinkClass}>
-            <TrendingUp className="h-4 w-4" />
-            รายงาน
-          </NavLink>
-        )}
+        <NavLink to="/reports" className={navLinkClass}>
+          <TrendingUp className="h-4 w-4" />
+          รายงาน
+        </NavLink>
         {user.role === 'admin' && (
           <NavLink to="/history" className={navLinkClass}>
             <History className="h-4 w-4" />

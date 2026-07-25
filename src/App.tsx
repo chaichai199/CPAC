@@ -22,14 +22,7 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route element={<AppShell />}>
                   <Route path="/" element={<DashboardPage />} />
-                  <Route
-                    path="/reports"
-                    element={
-                      <ProtectedRoute requireRole="admin">
-                        <ReportsPage />
-                      </ProtectedRoute>
-                    }
-                  />
+                  <Route path="/reports" element={<ReportsPage />} />
                   <Route
                     path="/history"
                     element={

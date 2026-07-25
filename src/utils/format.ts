@@ -34,6 +34,12 @@ export function formatThaiDateFull(dateStr: string): string {
   return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${toBuddhistYear(d.getFullYear())}`
 }
 
+export function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  if (digits.length !== 10) return value
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
 export function todayStr(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

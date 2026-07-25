@@ -4,7 +4,7 @@ import type { Booking, BookingStatus } from '@/types'
 import { BOOKING_STATUSES, STATUS_LABEL_TH } from '@/types'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
-import { formatCurrency, formatThaiDateFull } from '@/utils/format'
+import { formatCurrency, formatPhone, formatThaiDateFull } from '@/utils/format'
 import { StatusBadge } from '@/components/calendar/StatusBadge'
 
 function DetailField({ label, value }: { label: string; value: ReactNode }) {
@@ -65,7 +65,7 @@ function BookingCard({ booking }: { booking: Booking }) {
           <div className="min-w-0">
             <p className="text-[10px] uppercase text-stone-400">เบอร์โทรศัพท์</p>
             <a href={`tel:${booking.contactPhone || booking.phone}`} className="truncate font-mono font-medium hover:underline">
-              {booking.contactPhone || booking.phone}
+              {formatPhone(booking.contactPhone || booking.phone)}
             </a>
           </div>
         </div>

@@ -179,7 +179,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
                   className="input-field font-mono"
                   value={form.phone}
                   onChange={(e) => update('phone', e.target.value)}
-                  placeholder="08XXXXXXXX"
+                  placeholder="08X-XXX-XXXX"
                   required
                 />
               </div>
@@ -300,7 +300,7 @@ export function BookingModal({ onClose }: { onClose: () => void }) {
                   className="input-field font-mono"
                   value={form.contactPhone}
                   onChange={(e) => update('contactPhone', e.target.value)}
-                  placeholder="08XXXXXXXX"
+                  placeholder="08X-XXX-XXXX"
                 />
               </div>
               <div className="sm:col-span-2">

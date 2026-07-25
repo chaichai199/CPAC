@@ -2,7 +2,7 @@ import type { Booking } from '@/types'
 import { StatusBadge } from '@/components/calendar/StatusBadge'
 import { formatCurrency, formatThaiDateShort } from '@/utils/format'
 
-export function SalesTable({ bookings }: { bookings: Booking[] }) {
+export function SalesTable({ bookings, onRowClick }: { bookings: Booking[]; onRowClick?: (booking: Booking) => void }) {
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
@@ -27,7 +27,12 @@ export function SalesTable({ bookings }: { bookings: Booking[] }) {
               </tr>
             ) : (
               bookings.map((b) => (
-                <tr key={b.id} className="hover:bg-sand-50/50">
+                <tr
+                  key={b.id}
+                  onClick={() => onRowClick?.(b)}
+                  className={onRowClick ? 'cursor-pointer hover:bg-sand-50' : 'hover:bg-sand-50/50'}
+                  title={onRowClick ? 'คลิกเพื่อดูรายละเอียด' : undefined}
+                >
                   <td className="px-4 py-3 font-mono text-xs font-semibold text-sand-700">{b.code}</td>
                   <td className="px-4 py-3 font-medium text-stone-800">{b.customerName}</td>
                   <td className="px-4 py-3 font-mono text-xs text-stone-500">{formatThaiDateShort(b.deliveryDate)}</td>

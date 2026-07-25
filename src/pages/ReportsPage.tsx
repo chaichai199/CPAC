@@ -4,10 +4,11 @@ import { CheckCircle2, Coins, Package, Printer, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
 import { useData } from '@/context/DataContext'
 import { dataStore } from '@/lib/db'
-import type { AppUser } from '@/types'
+import type { AppUser, Booking } from '@/types'
 import { StatCard } from '@/components/reports/StatCard'
 import { SalesTrendChart, type TrendPoint } from '@/components/reports/SalesTrendChart'
 import { SalesTable } from '@/components/reports/SalesTable'
+import { BookingDetailModal } from '@/components/reports/BookingDetailModal'
 import { formatCurrency, formatThaiDateFull, todayStr } from '@/utils/format'
 
 type ReportType = 'daily' | 'weekly' | 'monthly'
@@ -24,6 +25,7 @@ export function ReportsPage() {
   const [anchorDate, setAnchorDate] = useState(todayStr())
   const [sellerFilter, setSellerFilter] = useState('all')
   const [users, setUsers] = useState<AppUser[]>(() => dataStore.getUsersSnapshot())
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
 
   useEffect(() => dataStore.subscribeUsers(setUsers), [])
 
@@ -184,7 +186,9 @@ export function ReportsPage() {
         <SalesTrendChart data={chartData} />
       </div>
 
-      <SalesTable bookings={periodBookings} />
+      <SalesTable bookings={periodBookings} onRowClick={setSelectedBooking} />
+
+      {selectedBooking && <BookingDetailModal booking={selectedBooking} onClose={() => setSelectedBooking(null)} />}
     </div>
   )
 }
